@@ -4,7 +4,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
+
 @Injectable()
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
@@ -15,6 +16,7 @@ export class UsersService {
     return hash;
   };
 
+  // Thêm log vào hàm create trong users.service.ts
   async create(createUserDto: CreateUserDto) {
     const hashPassword = this.getHashPassword(createUserDto.password);
     const user = await this.userModel.create({
@@ -44,7 +46,9 @@ export class UsersService {
   }
 
   isValidPassword(password: string, hashPassword: string) {
-    return bcrypt.compareSync(password, hashPassword);
+    if (!hashPassword) return false;
+    const result = bcrypt.compareSync(password, hashPassword);
+    return result;
   }
 
   async update(updateUserDto: UpdateUserDto) {

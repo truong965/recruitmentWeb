@@ -11,7 +11,4 @@ export class CreateUserDto {
 
   @IsString()
   name: string;
-
-  @IsString()
-  address: string;
 }
