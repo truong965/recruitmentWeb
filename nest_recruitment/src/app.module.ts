@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CompaniesModule } from './companies/companies.module';
 import mongooseDelete from 'mongoose-delete';
+import mongoosePaginate from 'mongoose-paginate-v2';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -25,6 +26,8 @@ import mongooseDelete from 'mongoose-delete';
             deletedBy: true, // Thêm trường deletedBy
             deletedByType: Object,
           });
+
+          connection.plugin(mongoosePaginate);
           return connection;
         },
       }),
