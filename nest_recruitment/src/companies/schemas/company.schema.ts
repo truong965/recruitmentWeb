@@ -1,30 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
-import mongoose, { HydratedDocument } from 'mongoose';
+import { HydratedDocument } from 'mongoose';
+import { BaseSchema } from 'src/common/schemas/base.schema';
 
 export type CompanyDocument = HydratedDocument<Company>;
 
 @Schema({ timestamps: true })
-export class Company {
+export class Company extends BaseSchema {
   @Prop() name: string;
   @Prop() phone: string;
   @Prop() description: string;
-  @Prop({ type: Object }) createdBy: {
-    _id: mongoose.Schema.Types.ObjectId;
-    email: string;
-  };
-  @Prop({ type: Object }) updatedBy: {
-    _id: mongoose.Schema.Types.ObjectId;
-    email: string;
-  };
-  @Prop({ type: Object }) deletedBy: {
-    _id: mongoose.Schema.Types.ObjectId;
-    email: string;
-  };
-  @Prop() createdAt: Date;
-  @Prop() updatedAt: Date;
-  @Prop() deleted: Date;
-  @Prop() deletedAt: Date;
 }
 
 export const CompanySchema = SchemaFactory.createForClass(Company);
