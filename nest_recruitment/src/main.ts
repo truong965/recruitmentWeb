@@ -8,7 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
-  app.useGlobalGuards(new JwtAuthGuard(reflector));
+  // app.useGlobalGuards(new JwtAuthGuard(reflector));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Tự động loại bỏ các field không khai báo trong DTO (Bảo mật)
