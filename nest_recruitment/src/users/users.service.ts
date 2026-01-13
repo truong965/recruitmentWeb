@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto, RegisterUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import mongoose from 'mongoose';
+import mongoose, { ObjectId } from 'mongoose';
 import { User as UserM, UserDocument } from './schemas/user.schema';
 import * as bcrypt from 'bcryptjs';
 import type { SoftDeleteModel } from 'mongoose-delete';
@@ -131,6 +131,17 @@ export class UsersService {
           _id: iUser._id,
           email: iUser.email,
         },
+      },
+    );
+    return user;
+  }
+  async updateUserToken(refreshToken: string, _id: ObjectId) {
+    const user = await this.userModel.updateOne(
+      {
+        _id,
+      },
+      {
+        refreshToken,
       },
     );
     return user;

@@ -4,7 +4,7 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { TransformInterceptor } from './core/transform.interceptor';
-
+import cookieParser from 'cookie-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
@@ -18,6 +18,8 @@ async function bootstrap() {
       transform: true, // Tự động convert data sang đúng kiểu của DTO
     }),
   );
+  //config cookie
+  app.use(cookieParser());
   // config CORS
   app.enableCors({
     origin: 'http://localhost:3000/',
@@ -30,6 +32,7 @@ async function bootstrap() {
     type: VersioningType.URI, //v
     defaultVersion: ['1'], //v1
   });
+
   await app.listen(configService.get<string>('PORT') ?? 8000);
 }
 bootstrap();
