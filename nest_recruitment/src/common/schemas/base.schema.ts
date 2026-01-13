@@ -4,19 +4,19 @@ import mongoose from 'mongoose';
 export class BaseSchema {
   @Prop({ type: Object })
   createdBy?: {
-    _id: mongoose.Schema.Types.ObjectId;
+    _id: mongoose.Types.ObjectId;
     email: string;
   };
 
   @Prop({ type: Object })
   updatedBy?: {
-    _id: mongoose.Schema.Types.ObjectId;
+    _id: mongoose.Types.ObjectId;
     email: string;
   };
 
   @Prop({ type: Object })
   deletedBy?: {
-    _id: mongoose.Schema.Types.ObjectId;
+    _id: mongoose.Types.ObjectId;
     email: string;
   };
 

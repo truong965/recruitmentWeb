@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto, RegisterUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import mongoose, { ObjectId } from 'mongoose';
+import mongoose from 'mongoose';
 import { User as UserM, UserDocument } from './schemas/user.schema';
 import * as bcrypt from 'bcryptjs';
 import type { SoftDeleteModel } from 'mongoose-delete';

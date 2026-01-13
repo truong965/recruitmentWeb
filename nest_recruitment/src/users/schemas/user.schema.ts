@@ -14,7 +14,7 @@ export class User extends BaseSchema {
   @Prop() gender: string;
   @Prop() address: string;
   @Prop({ type: Object }) company: {
-    _id: mongoose.Schema.Types.ObjectId;
+    _id: mongoose.Types.ObjectId;
     name: string;
   };
   @Prop() role: string;
