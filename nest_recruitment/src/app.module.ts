@@ -22,7 +22,8 @@ import mongooseDelete from 'mongoose-delete';
           connection.plugin(mongooseDelete, {
             overrideMethods: 'all', // Tự động override các hàm find, count... để ẩn record đã xóa
             deletedAt: true, // Tự động thêm trường deletedAt
-            deletedBy: true, // (Tuỳ chọn) Thêm trường deletedBy
+            deletedBy: true, // Thêm trường deletedBy
+            deletedByType: Object,
           });
           return connection;
         },

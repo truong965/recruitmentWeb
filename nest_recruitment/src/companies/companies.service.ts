@@ -35,21 +35,32 @@ export class CompaniesService {
     });
   }
 
-  async update(updateCompanyDto: UpdateCompanyDto) {
+  async update(id: string, updateCompanyDto: UpdateCompanyDto, user: IUser) {
     const company = await this.companyModel.updateOne(
       {
-        _id: updateCompanyDto._id,
+        _id: id,
       },
-      { ...updateCompanyDto },
+      {
+        ...updateCompanyDto,
+        updatedBy: {
+          _id: user._id,
+          email: user.email,
+        },
+      },
     );
     return company;
   }
 
-  remove(id: string) {
+  async remove(id: string, user: IUser) {
     if (!mongoose.Types.ObjectId.isValid(id)) return 'not found';
-
-    return this.companyModel.delete({
-      _id: id,
-    });
+    return this.companyModel.delete(
+      {
+        _id: id,
+      },
+      {
+        _id: user._id,
+        email: user.email,
+      },
+    );
   }
 }
