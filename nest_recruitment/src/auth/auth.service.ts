@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { IUser } from 'src/users/users.interface';
@@ -39,7 +39,7 @@ export class AuthService {
     };
     const refresh_token = this.createRefreshToken(payload);
     //update user with refresh token
-    await this.usersService.updateUserToken(refresh_token, _id);
+    await this.usersService.updateUserToken(refresh_token, _id.toString());
     //set refresh_token as cookies
     const refreshExpire =
       this.configService.get<string>('JWT_REFRESH_EXPIRE') || '7d';
@@ -74,5 +74,59 @@ export class AuthService {
       ) as JwtSignOptions['expiresIn'],
     });
     return refresh_token;
+  };
+
+  processNewToken = async (refresh_token: string, response: Response) => {
+    try {
+      this.jwtService.verify(refresh_token, {
+        secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
+      });
+      //
+      const user = await this.usersService.findUserByToken(refresh_token);
+      if (user) {
+        //update
+        const { _id, name, email, role } = user;
+        const payload = {
+          sub: 'token refresh',
+          iss: 'from server',
+          _id,
+          name,
+          email,
+          role,
+        };
+        const new_refresh_token = this.createRefreshToken(payload);
+        //update user with refresh token
+        await this.usersService.updateUserToken(
+          new_refresh_token,
+          _id.toString(),
+        );
+        //set refresh_token as cookies
+        const refreshExpire =
+          this.configService.get<string>('JWT_REFRESH_EXPIRE') || '7d';
+
+        response.cookie('refresh_token', refresh_token, {
+          httpOnly: true,
+          secure: false,
+          sameSite: 'strict',
+          // refreshExpire chắc chắn là string -> ms trả về number
+          maxAge: ms(refreshExpire as StringValue),
+        });
+
+        return {
+          access_token: this.jwtService.sign(payload),
+          refresh_token,
+          user: {
+            _id,
+            name,
+            email,
+            role,
+          },
+        };
+      }
+    } catch (error) {
+      throw new BadRequestException(
+        'refesh token is not valid, please login again!',
+      );
+    }
   };
 }
