@@ -22,6 +22,7 @@ export class CompaniesService {
         email: user.email,
       },
     });
+
     return { _id: res._id, createAt: res.createdAt };
   }
 
