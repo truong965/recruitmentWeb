@@ -12,6 +12,7 @@ import mongooseDelete from 'mongoose-delete';
 import mongoosePaginate from 'mongoose-paginate-v2';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { ResumesModule } from './resumes/resumes.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -46,6 +47,7 @@ import { join } from 'path';
     CompaniesModule,
     JobsModule,
     FilesModule,
+    ResumesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

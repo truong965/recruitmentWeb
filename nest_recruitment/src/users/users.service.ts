@@ -8,7 +8,6 @@ import * as bcrypt from 'bcryptjs';
 import type { SoftDeleteModel } from 'mongoose-delete';
 import type { IUser } from './users.interface';
 import aqp from 'api-query-params';
-import { User } from 'src/auth/decorator/customize';
 
 @Injectable()
 export class UsersService {
@@ -43,7 +42,7 @@ export class UsersService {
     return { _id: user._id, createdAt: user.createdAt };
   }
 
-  async registerByCompany(createUserDto: CreateUserDto, @User() iUser: IUser) {
+  async registerByCompany(createUserDto: CreateUserDto, iUser: IUser) {
     const isExist = await this.userModel.findOne({
       email: createUserDto.email,
     });
@@ -120,7 +119,7 @@ export class UsersService {
     return result;
   }
 
-  async update(updateUserDto: UpdateUserDto, @User() iUser: IUser) {
+  async update(updateUserDto: UpdateUserDto, iUser: IUser) {
     const user = await this.userModel.updateOne(
       {
         _id: updateUserDto._id,
@@ -153,7 +152,7 @@ export class UsersService {
     return user;
   }
 
-  async remove(id: string, @User() user: IUser) {
+  async remove(id: string, user: IUser) {
     if (!mongoose.Types.ObjectId.isValid(id)) return 'not found';
 
     return this.userModel.delete(

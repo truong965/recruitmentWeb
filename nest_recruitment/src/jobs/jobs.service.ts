@@ -4,7 +4,7 @@ import { UpdateJobDto } from './dto/update-job.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Job, JobDocument } from './schemas/job.schema';
 import type { SoftDeleteModel } from 'mongoose-delete';
-import { IUser } from 'src/users/users.interface';
+import type { IUser } from 'src/users/users.interface';
 import aqp from 'api-query-params';
 import mongoose from 'mongoose';
 
