@@ -7,8 +7,11 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CompaniesModule } from './companies/companies.module';
 import { JobsModule } from './jobs/jobs.module';
+import { FilesModule } from './files/files.module';
 import mongooseDelete from 'mongoose-delete';
 import mongoosePaginate from 'mongoose-paginate-v2';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -33,10 +36,16 @@ import mongoosePaginate from 'mongoose-paginate-v2';
         },
       }),
     }),
+    // public file
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'), // Trỏ đến thư mục public ở root dự án
+      exclude: ['/api/(.*)'], // Quan trọng: Đảm bảo nó không chặn các route API của bạn
+    }),
     UsersModule,
     AuthModule,
     CompaniesModule,
     JobsModule,
+    FilesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
