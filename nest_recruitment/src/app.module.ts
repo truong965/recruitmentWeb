@@ -13,6 +13,7 @@ import mongoosePaginate from 'mongoose-paginate-v2';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { ResumesModule } from './resumes/resumes.module';
+import { PermissionsModule } from './permissions/permissions.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -48,6 +49,7 @@ import { ResumesModule } from './resumes/resumes.module';
     JobsModule,
     FilesModule,
     ResumesModule,
+    PermissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
