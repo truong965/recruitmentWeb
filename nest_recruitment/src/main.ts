@@ -22,9 +22,10 @@ async function bootstrap() {
   app.use(cookieParser());
   // config CORS
   app.enableCors({
-    origin: 'http://localhost:3000/',
+    origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     preflightContinue: false,
+    credentials: true,
   });
   //config version
   app.setGlobalPrefix('api');

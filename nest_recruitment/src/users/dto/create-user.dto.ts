@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import mongoose from 'mongoose';
 
-class Company {
+export class Company {
   @IsNotEmpty()
   _id: mongoose.Types.ObjectId;
 

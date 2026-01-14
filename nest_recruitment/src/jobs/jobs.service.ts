@@ -1,22 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { CreateCompanyDto } from './dto/create-company.dto';
-import { UpdateCompanyDto } from './dto/update-company.dto';
-import { Company, CompanyDocument } from './schemas/company.schema';
-import type { SoftDeleteModel } from 'mongoose-delete';
+import { CreateJobDto } from './dto/create-job.dto';
+import { UpdateJobDto } from './dto/update-job.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import mongoose from 'mongoose';
+import { Job, JobDocument } from './schemas/job.schema';
+import type { SoftDeleteModel } from 'mongoose-delete';
 import { IUser } from 'src/users/users.interface';
 import aqp from 'api-query-params';
+import mongoose from 'mongoose';
 
 @Injectable()
-export class CompaniesService {
+export class JobsService {
   constructor(
-    @InjectModel(Company.name)
-    private companyModel: SoftDeleteModel<CompanyDocument>,
+    @InjectModel(Job.name)
+    private jobModel: SoftDeleteModel<JobDocument>,
   ) {}
-  async create(createCompanyDto: CreateCompanyDto, user: IUser) {
-    const res = await this.companyModel.create({
-      ...createCompanyDto,
+  async create(createJobDto: CreateJobDto, user: IUser) {
+    const res = await this.jobModel.create({
+      ...createJobDto,
       createdBy: {
         _id: user._id,
         email: user.email,
@@ -34,10 +34,10 @@ export class CompaniesService {
     const defaultLimit = +limit ? +limit : 10;
     const offset = (currentPage - 1) * defaultLimit;
 
-    const totalItems = (await this.companyModel.find(filter)).length;
+    const totalItems = (await this.jobModel.find(filter)).length;
     const totalPages = Math.ceil(totalItems / defaultLimit);
 
-    const result = await this.companyModel
+    const result = await this.jobModel
       .find(filter)
       .limit(defaultLimit)
       .skip(offset)
@@ -58,18 +58,18 @@ export class CompaniesService {
 
   async findOne(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id)) return 'not found';
-    return await this.companyModel.findById({
+    return await this.jobModel.findById({
       _id: id,
     });
   }
 
-  async update(id: string, updateCompanyDto: UpdateCompanyDto, user: IUser) {
-    const company = await this.companyModel.updateOne(
+  async update(id: string, updateJobDto: UpdateJobDto, user: IUser) {
+    const company = await this.jobModel.updateOne(
       {
         _id: id,
       },
       {
-        ...updateCompanyDto,
+        ...updateJobDto,
         updatedBy: {
           _id: user._id,
           email: user.email,
@@ -79,9 +79,9 @@ export class CompaniesService {
     return company;
   }
 
-  async remove(id: string, user: IUser) {
+  remove(id: string, user: IUser) {
     if (!mongoose.Types.ObjectId.isValid(id)) return 'not found';
-    return this.companyModel.delete(
+    return this.jobModel.delete(
       {
         _id: id,
       },

@@ -8,7 +8,7 @@ export type CompanyDocument = HydratedDocument<Company>;
 @Schema({ timestamps: true })
 export class Company extends BaseSchema {
   @Prop() name: string;
-  @Prop() phone: string;
+  @Prop() address: string;
   @Prop() description: string;
 }
 
