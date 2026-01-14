@@ -17,6 +17,7 @@ export class Job extends BaseSchema {
   @Prop({ type: Object }) company: {
     _id: mongoose.Types.ObjectId;
     name: string;
+    logo: string;
   };
   @Prop() location: string;
   @Prop() salary: number;

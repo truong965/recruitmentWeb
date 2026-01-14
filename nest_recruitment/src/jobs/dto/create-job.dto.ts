@@ -12,8 +12,19 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { Company } from 'src/users/dto/create-user.dto';
+import mongoose from 'mongoose';
+
 import sanitizeHtml from 'sanitize-html';
+export class Company {
+  @IsNotEmpty()
+  _id: mongoose.Types.ObjectId;
+
+  @IsNotEmpty()
+  name: string;
+
+  @IsNotEmpty()
+  logo: string;
+}
 export class CreateJobDto {
   @IsNotEmpty()
   @IsString()

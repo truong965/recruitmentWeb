@@ -14,7 +14,7 @@ export class FilesController {
 
   @ResponseMessage('upload file')
   @Post('/upload')
-  @UseInterceptors(FileInterceptor('file')) //tên field sử dụng trong form-data
+  @UseInterceptors(FileInterceptor('fileUpload')) //tên field sử dụng trong form-data
   uploadFile(@UploadedFile() file: Express.Multer.File) {
     return { fileName: file.filename };
   }

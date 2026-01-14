@@ -11,7 +11,7 @@ import {
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
-import { ResponseMessage, User } from 'src/auth/decorator/customize';
+import { Public, ResponseMessage, User } from 'src/auth/decorator/customize';
 import type { IUser } from 'src/users/users.interface';
 
 @Controller('jobs')
@@ -24,6 +24,7 @@ export class JobsController {
     return this.jobsService.create(createJobDto, user);
   }
 
+  @Public()
   @Get()
   @ResponseMessage('fetch jobs with pagination ')
   findAll(
@@ -34,6 +35,7 @@ export class JobsController {
     return this.jobsService.findAll(+currentPage, +limit, qs);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.jobsService.findOne(id);
