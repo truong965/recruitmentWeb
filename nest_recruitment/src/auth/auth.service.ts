@@ -6,7 +6,6 @@ import { RegisterUserDto } from 'src/users/dto/create-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import ms, { StringValue } from 'ms';
-import { permission } from 'process';
 
 @Injectable()
 export class AuthService {
