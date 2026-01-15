@@ -8,12 +8,14 @@ import * as bcrypt from 'bcryptjs';
 import type { SoftDeleteModel } from 'mongoose-delete';
 import type { IUser } from './users.interface';
 import { BaseService } from 'src/common/service/base.service';
-import { permission } from 'process';
+import { Role, RoleDocument } from 'src/roles/schemas/role.schema';
+import { USER_ROLE } from 'src/databases/sample';
 
 @Injectable()
 export class UsersService extends BaseService<UserDocument> {
   constructor(
     @InjectModel(UserM.name) private userModel: SoftDeleteModel<UserDocument>,
+    @InjectModel(Role.name) private roleModel: SoftDeleteModel<RoleDocument>,
   ) {
     super(userModel);
   }
@@ -33,6 +35,7 @@ export class UsersService extends BaseService<UserDocument> {
       throw new BadRequestException('email is exist');
     }
     const hashPassword = this.getHashPassword(registerUserDto.password);
+    const userRole = await this.roleModel.findOne({ name: USER_ROLE });
     const user = await this.userModel.create({
       name: registerUserDto.name,
       email: registerUserDto.email,
@@ -40,7 +43,7 @@ export class UsersService extends BaseService<UserDocument> {
       age: +registerUserDto.age,
       gender: registerUserDto.gender,
       address: registerUserDto.address,
-      role: 'USER',
+      role: userRole?._id,
     });
     return { _id: user._id, createdAt: user.createdAt };
   }
@@ -76,7 +79,7 @@ export class UsersService extends BaseService<UserDocument> {
         email: username,
       })
       .select('+password')
-      .populate({ path: 'role', select: { name: 1, permission: 1 } });
+      .populate({ path: 'role', select: { name: 1 } });
   }
   async findOne(id: string) {
     return await this.userModel
@@ -116,9 +119,11 @@ export class UsersService extends BaseService<UserDocument> {
     return user;
   }
   async findUserByToken(refreshToken: string) {
-    const user = await this.userModel.findOne({
-      refreshToken,
-    });
+    const user = await this.userModel
+      .findOne({
+        refreshToken,
+      })
+      .populate({ path: 'role', select: { name: 1 } });
     return user;
   }
 }

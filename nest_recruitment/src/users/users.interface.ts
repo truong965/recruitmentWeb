@@ -1,6 +1,4 @@
 import mongoose from 'mongoose';
-import { Role } from 'src/roles/schemas/role.schema';
-
 export interface IUser {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -8,5 +6,14 @@ export interface IUser {
   age: number;
   gender: string;
   address: string;
-  role: Role;
+  role: {
+    _id: string;
+    name: string;
+  };
+  permissions?: {
+    _id: string;
+    name: string;
+    apiPath: string;
+    module: string;
+  }[];
 }

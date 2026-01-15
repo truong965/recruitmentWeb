@@ -6,13 +6,14 @@ import { RegisterUserDto } from 'src/users/dto/create-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import ms, { StringValue } from 'ms';
-
+import { RolesService } from 'src/roles/roles.service';
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private roleService: RolesService,
   ) {}
 
   async validateUser(username: string, pass: string): Promise<any> {
@@ -22,13 +23,21 @@ export class AuthService {
     const isValid = this.usersService.isValidPassword(pass, user.password);
 
     if (isValid === true) {
-      return user;
+      const userRole = user.role as unknown as { _id: string; name: string };
+      // get role
+      const temp = await this.roleService.findOne(userRole._id);
+      // convert to object and attach permission
+      const objUser = {
+        ...user.toObject(),
+        permissions: temp?.permissions ?? [],
+      };
+      return objUser;
     }
 
     return null;
   }
   async login(user: IUser, response: Response) {
-    const { _id, name, email, role } = user;
+    const { _id, name, email, role, permissions } = user;
     const payload = {
       sub: 'token login',
       iss: 'from server',
@@ -60,6 +69,7 @@ export class AuthService {
         name,
         email,
         role,
+        permissions,
       },
     };
   }
@@ -100,7 +110,13 @@ export class AuthService {
           new_refresh_token,
           _id.toString(),
         );
+        //fetch role
+        const userRole = user.role as unknown as { _id: string; name: string };
+        // get role
+        const temp = await this.roleService.findOne(userRole._id);
         //set refresh_token as cookies
+        response.clearCookie('refresh_token');
+
         const refreshExpire =
           this.configService.get<string>('JWT_REFRESH_EXPIRE') || '7d';
 
@@ -120,12 +136,13 @@ export class AuthService {
             name,
             email,
             role,
+            permissions: temp?.permissions ?? [],
           },
         };
       }
     } catch (error) {
       throw new BadRequestException(
-        'refesh token is not valid, please login again!',
+        `refesh token is not valid, please login again!${error}`,
       );
     }
   };
