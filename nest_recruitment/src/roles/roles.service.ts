@@ -31,7 +31,10 @@ export class RolesService extends BaseService<RoleDocument> {
 
   async update(id: string, updateRoleDto: UpdateRoleDto, user: IUser) {
     // Check trùng name
-    const isExist = await this.roleModel.findOne({ name: updateRoleDto.name });
+    const isExist = await this.roleModel.findOne({
+      name: updateRoleDto.name,
+      _id: { $ne: id },
+    });
     if (isExist) {
       throw new BadRequestException(
         `Role với tên "${updateRoleDto.name}" đã tồn tại!`,
@@ -44,17 +47,13 @@ export class RolesService extends BaseService<RoleDocument> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new BadRequestException('not found role');
     }
-    const role = await this.roleModel.findById(id);
-    if (!role) {
-      throw new BadRequestException('not found role');
-    }
-    return role.populate({
+    return await this.roleModel.findById(id).populate({
       path: 'permissions',
       select: { _id: 1, apiPath: 1, name: 1, method: 1, module: 1 },
     });
   }
   async remove(id: string, user: IUser) {
-    const role = await this.roleModel.findOne({ _id: id });
+    const role = await this.roleModel.findById(id);
     if (role?.name === 'ADMIN') {
       throw new BadRequestException(`can't delete admin role`);
     }

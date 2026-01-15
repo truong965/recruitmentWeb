@@ -8,6 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import type { SoftDeleteModel } from 'mongoose-delete';
 import type { IUser } from './users.interface';
 import { BaseService } from 'src/common/service/base.service';
+import { permission } from 'process';
 
 @Injectable()
 export class UsersService extends BaseService<UserDocument> {
@@ -74,9 +75,14 @@ export class UsersService extends BaseService<UserDocument> {
       .findOne({
         email: username,
       })
-      .select('+password');
+      .select('+password')
+      .populate({ path: 'role', select: { name: 1, permission: 1 } });
   }
-
+  async findOne(id: string) {
+    return await this.userModel
+      .findById(id)
+      .populate({ path: 'role', select: { name: 1, _id: 1 } });
+  }
   isValidPassword(password: string, hashPassword: string) {
     if (!hashPassword) return false;
     const result = bcrypt.compareSync(password, hashPassword);
