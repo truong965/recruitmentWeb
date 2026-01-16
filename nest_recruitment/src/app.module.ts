@@ -23,8 +23,12 @@ import { SecurityService } from './common/service/security.service';
 import { CaslModule } from './casl/casl.module';
 import { CommonModule } from './common/common.module';
 import { SubscribersModule } from './subscribers/subscribers.module';
+import { MailModule } from './mail/mail.module';
+import { ScheduleModule } from '@nestjs/schedule';
+
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env.development',
@@ -64,6 +68,7 @@ import { SubscribersModule } from './subscribers/subscribers.module';
     CaslModule,
     CommonModule,
     SubscribersModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [

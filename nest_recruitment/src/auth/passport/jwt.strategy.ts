@@ -15,16 +15,9 @@ export interface CachedPermission {
   method: string;
   module: string;
 }
-interface CacheEntry {
-  permissions: CachedPermission[];
-  timestamp: number;
-}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private permissionsCache = new Map<string, CacheEntry>();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
   constructor(
     private configService: ConfigService,
     private roleService: RolesService,

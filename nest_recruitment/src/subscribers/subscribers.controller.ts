@@ -11,7 +11,11 @@ import {
 import { SubscribersService } from './subscribers.service';
 import { CreateSubscriberDto } from './dto/create-subscriber.dto';
 import { UpdateSubscriberDto } from './dto/update-subscriber.dto';
-import { ResponseMessage, User } from 'src/auth/decorator/customize';
+import {
+  ResponseMessage,
+  SkipCheckPermission,
+  User,
+} from 'src/auth/decorator/customize';
 import type { IUser } from 'src/users/users.interface';
 
 @Controller('subscribers')
@@ -19,7 +23,8 @@ export class SubscribersController {
   constructor(private readonly subscribersService: SubscribersService) {}
 
   @Post()
-  @ResponseMessage('create roles')
+  @ResponseMessage('create subscribers')
+  @SkipCheckPermission()
   create(
     @Body() createSubscriberDto: CreateSubscriberDto,
     @User() user: IUser,
@@ -28,7 +33,7 @@ export class SubscribersController {
   }
 
   @Get()
-  @ResponseMessage('fetch roles with pagination ')
+  @ResponseMessage('fetch subscribers with pagination ')
   findAll(
     @Query('current') currentPage: string,
     @Query('pageSize') limit: string,
@@ -38,23 +43,25 @@ export class SubscribersController {
   }
 
   @Get(':id')
-  @ResponseMessage('fetch roles by id ')
+  @SkipCheckPermission()
+  @ResponseMessage('fetch subscribers by id ')
   findOne(@Param('id') id: string) {
     return this.subscribersService.findOne(id);
   }
 
-  @Patch(':id')
-  @ResponseMessage('update roles by id ')
+  @Patch('')
+  @SkipCheckPermission()
+  @ResponseMessage('update subscribers by email')
   update(
-    @Param('id') id: string,
     @Body() updateSubscriberDto: UpdateSubscriberDto,
     @User() user: IUser,
   ) {
-    return this.subscribersService.update(id, updateSubscriberDto, user);
+    return this.subscribersService.updateSub(updateSubscriberDto, user);
   }
 
   @Delete(':id')
-  @ResponseMessage('delete roles by id ')
+  @SkipCheckPermission()
+  @ResponseMessage('delete subscribers by id ')
   remove(@Param('id') id: string, @User() user: IUser) {
     return this.subscribersService.remove(id, user);
   }
