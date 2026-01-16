@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { TransformInterceptor } from './core/transform.interceptor';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
@@ -33,6 +34,8 @@ async function bootstrap() {
     type: VersioningType.URI, //v
     defaultVersion: ['1'], //v1
   });
+  //config helmet
+  app.use(helmet());
 
   await app.listen(configService.get<string>('PORT') ?? 8000);
 }

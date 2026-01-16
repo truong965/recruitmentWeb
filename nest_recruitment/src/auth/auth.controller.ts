@@ -21,6 +21,7 @@ import { RegisterUserDto } from 'src/users/dto/create-user.dto';
 import type { Response, Request } from 'express';
 import { RolesService } from 'src/roles/roles.service';
 import mongoose from 'mongoose';
+import { ThrottlerGuard } from '@nestjs/throttler';
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -30,6 +31,7 @@ export class AuthController {
 
   @Public()
   @UseGuards(LocalAuthGuard)
+  @UseGuards(ThrottlerGuard)
   @ResponseMessage('login')
   @Post('/login')
   handleLogin(
