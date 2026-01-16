@@ -22,6 +22,7 @@ import { PermissionsGuard } from './casl/guards/permissions.guard';
 import { SecurityService } from './common/service/security.service';
 import { CaslModule } from './casl/casl.module';
 import { CommonModule } from './common/common.module';
+import { SubscribersModule } from './subscribers/subscribers.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -62,6 +63,7 @@ import { CommonModule } from './common/common.module';
     DatabasesModule,
     CaslModule,
     CommonModule,
+    SubscribersModule,
   ],
   controllers: [AppController],
   providers: [
