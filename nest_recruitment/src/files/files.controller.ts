@@ -7,7 +7,8 @@ import {
 import { FilesService } from './files.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ResponseMessage } from 'src/auth/decorator/customize';
-
+import { ApiTags } from '@nestjs/swagger';
+@ApiTags('files')
 @Controller('files')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}

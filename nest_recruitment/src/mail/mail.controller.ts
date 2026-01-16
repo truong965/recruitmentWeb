@@ -9,7 +9,8 @@ import type { SoftDeleteModel } from 'mongoose-delete';
 import { InjectModel } from '@nestjs/mongoose';
 import { Job, JobDocument } from 'src/jobs/schemas/job.schema';
 import { Cron } from '@nestjs/schedule';
-
+import { ApiTags } from '@nestjs/swagger';
+@ApiTags('mail')
 @Controller('mail')
 export class MailController {
   constructor(

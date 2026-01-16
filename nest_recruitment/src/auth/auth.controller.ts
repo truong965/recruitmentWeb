@@ -17,11 +17,13 @@ import {
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { IUser } from 'src/users/users.interface';
-import { RegisterUserDto } from 'src/users/dto/create-user.dto';
+import { RegisterUserDto, UserLoginDto } from 'src/users/dto/create-user.dto';
 import type { Response, Request } from 'express';
 import { RolesService } from 'src/roles/roles.service';
 import mongoose from 'mongoose';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { ApiBody, ApiTags } from '@nestjs/swagger';
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -34,6 +36,7 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   @ResponseMessage('login')
   @Post('/login')
+  @ApiBody({ type: UserLoginDto })
   handleLogin(
     @User() user: IUser,
     @Res({ passthrough: true }) response: Response,

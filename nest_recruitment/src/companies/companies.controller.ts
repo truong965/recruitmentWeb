@@ -23,7 +23,9 @@ import { SecurityService } from 'src/common/service/security.service';
 import { Company, CompanyDocument } from './schemas/company.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import type { SoftDeleteModel } from 'mongoose-delete';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('companies')
 @Controller('companies')
 // @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CompaniesController {
