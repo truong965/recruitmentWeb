@@ -8,12 +8,14 @@ import { IUser } from 'src/users/users.interface';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { ADMIN_ROLE } from 'src/databases/sample';
+import { JwtStrategy } from 'src/auth/passport/jwt.strategy';
 
 @Injectable()
 export class RolesService extends BaseService<RoleDocument> {
   constructor(
     @InjectModel(Role.name)
     private roleModel: SoftDeleteModel<RoleDocument>,
+    private jwtStrategy: JwtStrategy,
   ) {
     super(roleModel);
   }
@@ -41,6 +43,8 @@ export class RolesService extends BaseService<RoleDocument> {
         `Role với tên "${updateRoleDto.name}" đã tồn tại!`,
       );
     }
+    // Clear cache sau khi update permissions
+    this.jwtStrategy.clearCache(id);
     // Nếu chưa có thì mới tạo
     return super.update(id, updateRoleDto, user);
   }
@@ -59,6 +63,9 @@ export class RolesService extends BaseService<RoleDocument> {
       throw new BadRequestException(`can't delete admin role`);
     }
     if (!mongoose.Types.ObjectId.isValid(id)) return 'not found';
+    // Clear cache
+    this.jwtStrategy.clearCache(id);
+
     await this.roleModel.updateOne({ _id: id }, { isActive: false });
     return this.roleModel.delete(
       { _id: id },

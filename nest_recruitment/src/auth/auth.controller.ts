@@ -8,7 +8,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Public, ResponseMessage, User } from './decorator/customize';
+import {
+  Public,
+  ResponseMessage,
+  SkipCheckPermission,
+  User,
+} from './decorator/customize';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { IUser } from 'src/users/users.interface';
@@ -42,6 +47,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @SkipCheckPermission()
   @ResponseMessage('profile')
   @Post('/profile')
   getProfile(@Req() req: Request) {
@@ -49,6 +55,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @SkipCheckPermission()
   @ResponseMessage('get account')
   @Get('/account')
   async getAccount(@User() user: IUser) {
@@ -58,6 +65,7 @@ export class AuthController {
     type PopulatedPermission = {
       _id: mongoose.Types.ObjectId;
       name: string;
+      method: string;
       apiPath: string;
       module: string;
     };
@@ -72,6 +80,7 @@ export class AuthController {
       user.permissions = populatedPermissions.map((perm) => ({
         _id: perm._id.toString(), //Convert ObjectId -> String
         name: perm.name,
+        method: perm.method,
         apiPath: perm.apiPath,
         module: perm.module,
       }));
@@ -81,6 +90,7 @@ export class AuthController {
 
   @Public()
   @ResponseMessage('get user by refresh token')
+  @SkipCheckPermission()
   @Post('/refresh')
   handleRefreshToken(
     @Req() request: Request,
@@ -90,6 +100,7 @@ export class AuthController {
     return this.authService.processNewToken(refresh_token, response);
   }
   @Public()
+  @SkipCheckPermission()
   @ResponseMessage('logout')
   @Post('/logout')
   handleLogout(

@@ -15,7 +15,11 @@ export const ResponseMessage = (message: string) =>
 export const User = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return request.user as IUser;
   },
 );
+
+export const IS_PUBLIC_PERMISSION = 'isPublicPermission';
+// Decorator này dùng để bypass việc check quyền trong DB
+export const SkipCheckPermission = () =>
+  SetMetadata(IS_PUBLIC_PERMISSION, true);
