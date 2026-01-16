@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Permission, PermissionDocument } from './schemas/permission.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import type { SoftDeleteModel } from 'mongoose-delete';
@@ -6,12 +6,15 @@ import { BaseService } from 'src/common/service/base.service';
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import type { IUser } from 'src/users/users.interface';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 
 @Injectable()
 export class PermissionsService extends BaseService<PermissionDocument> {
   constructor(
     @InjectModel(Permission.name)
     private permissionModel: SoftDeleteModel<PermissionDocument>,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
     super(permissionModel);
   }
@@ -62,5 +65,20 @@ export class PermissionsService extends BaseService<PermissionDocument> {
       await this.checkPermissionWithApiPathAndMethod(newApiPath, newMethod, id);
     }
     return super.update(id, updatePermissionDto, user);
+  }
+  private getKey(roleId: string): string {
+    return `permissions:${roleId}`;
+  }
+
+  async getPermissions(roleId: string): Promise<any[] | null | undefined> {
+    return await this.cacheManager.get(this.getKey(roleId));
+  }
+
+  async setPermissions(roleId: string, permissions: any[]) {
+    await this.cacheManager.set(this.getKey(roleId), permissions);
+  }
+
+  async clearCache(roleId: string) {
+    await this.cacheManager.del(this.getKey(roleId));
   }
 }

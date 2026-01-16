@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { IUser } from 'src/users/users.interface';
 import { RolesService } from 'src/roles/roles.service';
 import mongoose from 'mongoose';
+import { PermissionsService } from 'src/permissions/permissions.service';
 
 export interface CachedPermission {
   _id: string | mongoose.Types.ObjectId;
@@ -27,6 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
     private roleService: RolesService,
+    private permissionsService: PermissionsService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -52,7 +54,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Check cache first
-    const cached = this.getFromCache(userRole._id);
+    const cached = await this.permissionsService.getPermissions(userRole._id);
     if (cached) {
       return {
         _id,
@@ -69,8 +71,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       const permissions = (roleDoc?.permissions ??
         []) as unknown as CachedPermission[];
       // Save to cache
-      this.saveToCache(userRole._id, permissions);
-
+      if (roleDoc) {
+        await this.permissionsService.setPermissions(
+          userRole._id,
+          permissions as any[],
+        );
+      }
       return {
         _id,
         name,
@@ -87,43 +93,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role,
         permissions: [],
       };
-    }
-  }
-
-  private getFromCache(roleId: string): CachedPermission[] | null {
-    const entry = this.permissionsCache.get(roleId);
-
-    if (!entry) return null;
-
-    // Check if cache expired
-    const now = Date.now();
-    if (now - entry.timestamp > this.CACHE_TTL) {
-      this.permissionsCache.delete(roleId);
-      return null;
-    }
-
-    return entry.permissions;
-  }
-
-  private saveToCache(roleId: string, permissions: CachedPermission[]): void {
-    this.permissionsCache.set(roleId, {
-      permissions,
-      timestamp: Date.now(),
-    });
-
-    // Cleanup old entries (simple LRU)
-    if (this.permissionsCache.size > 100) {
-      const firstKey = this.permissionsCache.keys().next().value as string;
-      this.permissionsCache.delete(firstKey);
-    }
-  }
-
-  // Method để clear cache khi cần (VD: sau khi update permissions)
-  clearCache(roleId?: string): void {
-    if (roleId) {
-      this.permissionsCache.delete(roleId);
-    } else {
-      this.permissionsCache.clear();
     }
   }
 }

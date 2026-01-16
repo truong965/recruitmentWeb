@@ -8,14 +8,14 @@ import { IUser } from 'src/users/users.interface';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { ADMIN_ROLE } from 'src/databases/sample';
-import { JwtStrategy } from 'src/auth/passport/jwt.strategy';
+import { PermissionsService } from 'src/permissions/permissions.service';
 
 @Injectable()
 export class RolesService extends BaseService<RoleDocument> {
   constructor(
     @InjectModel(Role.name)
     private roleModel: SoftDeleteModel<RoleDocument>,
-    private jwtStrategy: JwtStrategy,
+    private permissionsService: PermissionsService,
   ) {
     super(roleModel);
   }
@@ -44,7 +44,7 @@ export class RolesService extends BaseService<RoleDocument> {
       );
     }
     // Clear cache sau khi update permissions
-    this.jwtStrategy.clearCache(id);
+    await this.permissionsService.clearCache(id);
     // Nếu chưa có thì mới tạo
     return super.update(id, updateRoleDto, user);
   }
@@ -64,7 +64,7 @@ export class RolesService extends BaseService<RoleDocument> {
     }
     if (!mongoose.Types.ObjectId.isValid(id)) return 'not found';
     // Clear cache
-    this.jwtStrategy.clearCache(id);
+    await this.permissionsService.clearCache(id);
 
     await this.roleModel.updateOne({ _id: id }, { isActive: false });
     return this.roleModel.delete(
