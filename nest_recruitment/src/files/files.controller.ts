@@ -3,17 +3,12 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
-  Param,
-  Get,
-  Type,
-  ForbiddenException,
 } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ResponseMessage,
   SkipCheckPermission,
-  User,
 } from 'src/auth/decorator/customize';
 import { ApiTags } from '@nestjs/swagger';
 @ApiTags('files')

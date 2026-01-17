@@ -51,50 +51,89 @@ export class DatabasesService implements OnModuleInit {
         const allPermissions = await this.permissionsModel
           .find({})
           .select('_id name apiPath method module');
+
         const hrPermissions = allPermissions.filter((p) => {
-          // HR full quyền với Users, Jobs, Files
-          if (['USERS', 'JOBS', 'FILES'].includes(p.module)) return true;
-
-          // HR chỉ được Xem và Update Companies (Không được Create/Delete)
-          if (
-            p.module === 'COMPANIES' &&
-            p.method !== 'POST' &&
-            p.method !== 'DELETE'
-          )
-            return true;
-
-          // HR chỉ được Xem Resumes (Bao gồm cả endpoint search by-user dùng method POST)
-          if (
-            p.module === 'RESUMES' &&
-            (p.method === 'GET' || p.apiPath.includes('by-user'))
-          )
-            return true;
-
-          // HR chỉ được Xem Roles, Permissions, Subscribers (Read-only)
-          if (
-            ['ROLES', 'PERMISSIONS', 'SUBSCRIBERS'].includes(p.module) &&
-            p.method === 'GET'
-          )
-            return true;
-
-          return false;
-        });
-        const userPermissions = allPermissions.filter((p) => {
-          // User full quyền với Resumes (CRUD của chính mình), Files
-          if (['RESUMES', 'FILES'].includes(p.module)) return true;
-
-          // User được xem và sửa bản thân (Users)
+          // USERS: can(['read', 'update']) -> GET, PATCH
           if (
             p.module === 'USERS' &&
             (p.method === 'GET' || p.method === 'PATCH')
           )
             return true;
 
-          // User chỉ được xem Jobs, Companies
-          if (['JOBS', 'COMPANIES'].includes(p.module) && p.method === 'GET')
+          // ROLES & PERMISSIONS: can('read') -> GET
+          if (
+            (p.module === 'ROLES' || p.module === 'PERMISSIONS') &&
+            p.method === 'GET'
+          )
             return true;
 
-          // User không có quyền với Roles, Permissions, Subscribers (API subscribers public không cần check DB permission này nếu dùng @Public)
+          // COMPANIES: can('update', own), can('read', all) -> GET, PATCH
+          if (
+            p.module === 'COMPANIES' &&
+            (p.method === 'GET' || p.method === 'PATCH')
+          )
+            return true;
+
+          // JOBS: can(['create', 'read', 'update', 'delete']) -> ALL (POST, GET, PATCH, DELETE)
+          if (
+            p.module === 'JOBS' &&
+            ['POST', 'GET', 'PATCH', 'DELETE'].includes(p.method)
+          )
+            return true;
+
+          // RESUMES: can('update'), can('read') -> GET, PATCH
+          if (
+            p.module === 'RESUMES' &&
+            (p.method === 'GET' || p.method === 'PATCH')
+          )
+            return true;
+
+          // FILES: can('create'), can(['read', 'delete']) -> POST, GET, DELETE
+          if (
+            p.module === 'FILES' &&
+            ['POST', 'GET', 'DELETE'].includes(p.method)
+          )
+            return true;
+
+          return false;
+        });
+
+        // --- FILTER PERMISSIONS FOR USER (Updated based on CASL rules) ---
+        const userPermissions = allPermissions.filter((p) => {
+          // USERS: can(['read', 'update'], own), can('delete', own) -> GET, PATCH, DELETE
+          if (
+            p.module === 'USERS' &&
+            ['GET', 'PATCH', 'DELETE'].includes(p.method)
+          )
+            return true;
+
+          // COMPANIES: can('read') -> GET
+          if (p.module === 'COMPANIES' && p.method === 'GET') return true;
+
+          // JOBS: can('read') -> GET
+          if (p.module === 'JOBS' && p.method === 'GET') return true;
+
+          // RESUMES: can('create'), can('read', own), can('update', own), can('delete', own) -> ALL
+          if (
+            p.module === 'RESUMES' &&
+            ['POST', 'GET', 'PATCH', 'DELETE'].includes(p.method)
+          )
+            return true;
+
+          // FILES: can('create'), can(['read', 'delete']) -> POST, GET, DELETE
+          if (
+            p.module === 'FILES' &&
+            ['POST', 'GET', 'DELETE'].includes(p.method)
+          )
+            return true;
+
+          // SUBSCRIBERS: can(['create', 'delete', 'read', 'update']) -> ALL
+          if (
+            p.module === 'SUBSCRIBERS' &&
+            ['POST', 'GET', 'PATCH', 'DELETE'].includes(p.method)
+          )
+            return true;
+
           return false;
         });
         await this.rolesModel.insertMany([

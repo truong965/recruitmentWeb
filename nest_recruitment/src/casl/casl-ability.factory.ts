@@ -12,6 +12,10 @@ import { User } from 'src/users/schemas/user.schema';
 import mongoose from 'mongoose';
 import { Job } from 'src/jobs/schemas/job.schema';
 import { Resume } from 'src/resumes/schemas/resume.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import { Role, RoleDocument } from 'src/roles/schemas/role.schema';
+import { Permission } from 'src/permissions/schemas/permission.schema';
+import type { SoftDeleteModel } from 'mongoose-delete';
 
 // Define all possible actions
 type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete';
@@ -61,7 +65,12 @@ export const USER_ROLE = 'USER';
 
 @Injectable()
 export class CaslAbilityFactory {
-  createForUser(user: CaslUser) {
+  constructor(
+    @InjectModel(Role.name)
+    private roleModel: SoftDeleteModel<RoleDocument>,
+  ) {}
+
+  async createForUser(user: CaslUser) {
     const { can, build } = new AbilityBuilder<AppAbility>(
       Ability as AbilityClass<AppAbility>,
     );
@@ -75,112 +84,94 @@ export class CaslAbilityFactory {
       });
     }
 
-    // HR ROLE - Specific permissions per module
-    if (user.role.name === HR_ROLE) {
-      // USERS Module
-      // HR can CRUD users in their own company (excluding password, role, company fields)
-      // Note: Controller must validate that password, role, company are not updated
-      can(['read', 'update'], 'User', {
-        'company._id': user.company?._id?.toString(),
-      });
+    // Fetch role từ database với populate permissions
+    const roleFromDb = await this.roleModel
+      .findOne({ name: user.role.name })
+      .populate('permissions')
+      .lean();
 
-      // ROLES & PERMISSIONS Module
-      // HR can only read
-      can('read', 'Role');
-      can('read', 'Permission');
-
-      // COMPANIES Module
-      // HR can update their own company
-      can('update', 'Company', {
-        _id: user.company?._id?.toString(),
-      });
-      // HR cannot create or delete companies, but can read all (public)
-      can('read', 'Company');
-
-      // JOBS Module
-      // HR can CRUD jobs in their own company
-      can(['create', 'read', 'update', 'delete'], 'Job', {
-        'company._id': user.company?._id?.toString(),
-      });
-
-      // RESUMES Module
-      // HR can update resume status (PENDING → REVIEWING → APPROVED/REJECTED)
-      // for resumes applied to jobs in their company
-      // Note: Requires custom logic in controller to verify job belongs to HR's company
-      can('update', 'Resume');
-      // HR can read all resumes (will be filtered by service to only company jobs)
-      can('read', 'Resume');
-
-      // FILES Module
-      // HR can upload, read, and delete own files
-      can('create', 'File');
-      can(['read', 'delete'], 'File', {
-        userId: user._id.toString(),
-      });
-
+    if (!roleFromDb) {
+      // Role không tồn tại trong DB, return ability rỗng
       return build({
         detectSubjectType: (item) =>
           item.constructor as ExtractSubjectType<Subjects>,
       });
     }
 
-    // USER ROLE - Limited permissions
-    if (user.role.name === USER_ROLE) {
-      // USERS Module
-      // USER can read and update only their own profile
-      // Note: Controller must validate that password, role, company are not updated
-      can(['read', 'update'], 'User', {
-        _id: user._id.toString(),
-      });
-      // USER can delete their own account
-      can('delete', 'User', {
-        _id: user._id.toString(),
-      });
+    // Build permissions từ database
+    const permissions = (roleFromDb.permissions ||
+      []) as unknown as Permission[];
+    for (const permission of permissions) {
+      const action = this.mapMethodToAction(permission.method);
+      const subject = this.mapModuleToSubject(permission.module);
 
-      // COMPANIES Module
-      // USER can read all companies (public)
-      can('read', 'Company');
-
-      // JOBS Module
-      // USER can read all jobs (public)
-      can('read', 'Job');
-
-      // RESUMES Module
-      // USER can create resume (apply to job)
-      can('create', 'Resume');
-      // USER can read own resumes
-      can('read', 'Resume', {
-        userId: user._id.toString(),
-      });
-      // USER can update own resume data (email, url) but only if status is PENDING
-      // Requires custom logic in controller to check status
-      can('update', 'Resume', {
-        userId: user._id.toString(),
-      });
-      // USER can delete own resume but only if status is PENDING
-      // Requires custom logic in controller to check status
-      can('delete', 'Resume', {
-        userId: user._id.toString(),
-      });
-
-      // FILES Module
-      // USER can upload, read, delete own files
-      can('create', 'File');
-      can(['read', 'delete'], 'File', {
-        userId: user._id.toString(),
-      });
-
-      // SUBSCRIBERS Module
-      // USER can crud
-      can(['create', 'delete', 'read', 'update'], 'Subscriber');
-
-      return build({
-        detectSubjectType: (item) =>
-          item.constructor as ExtractSubjectType<Subjects>,
-      });
+      if (action && subject) {
+        const subjectType = subject as ExtractSubjectType<Subjects>;
+        // Build CASL rule dựa trên apiPath - có thể thêm field-level nếu cần
+        if (
+          permission.module === 'USERS' &&
+          permission.apiPath.includes('users/') &&
+          (permission.method === 'PATCH' || permission.method === 'DELETE')
+        ) {
+          // For user-specific operations, add ownership check
+          if (user.role.name === USER_ROLE) {
+            can(action, subjectType, { _id: user._id.toString() });
+          } else if (user.role.name === HR_ROLE && user.company?._id) {
+            can(action, subjectType, {
+              'company._id': user.company._id.toString(),
+            });
+          }
+        } else if (
+          permission.module === 'JOBS' &&
+          (permission.method === 'POST' ||
+            permission.method === 'PATCH' ||
+            permission.method === 'DELETE')
+        ) {
+          // HR-specific job operations
+          if (user.role.name === HR_ROLE && user.company?._id) {
+            can(action, subjectType, {
+              'company._id': user.company._id.toString(),
+            });
+          } else {
+            can(action, subjectType);
+          }
+        } else if (
+          permission.module === 'COMPANIES' &&
+          (permission.method === 'PATCH' || permission.method === 'DELETE')
+        ) {
+          // HR can update their own company
+          if (user.role.name === HR_ROLE && user.company?._id) {
+            can(action, subjectType, {
+              _id: user.company._id.toString(),
+            });
+          } else {
+            can(action, subjectType);
+          }
+        } else if (
+          permission.module === 'RESUMES' &&
+          permission.method === 'PATCH'
+        ) {
+          // For resume updates
+          can(action, subjectType);
+        } else if (
+          permission.module === 'FILES' &&
+          (permission.method === 'DELETE' ||
+            (permission.method === 'GET' &&
+              permission.apiPath.includes('/:id')))
+        ) {
+          // File ownership check
+          if (user.role.name === USER_ROLE) {
+            can(action, subjectType, { userId: user._id.toString() });
+          } else {
+            can(action, subjectType);
+          }
+        } else {
+          // Default: no ownership restrictions
+          can(action, subjectType);
+        }
+      }
     }
 
-    // Default: no permissions for unknown roles
     return build({
       detectSubjectType: (item) =>
         item.constructor as ExtractSubjectType<Subjects>,

@@ -19,9 +19,7 @@ import { DatabasesModule } from './databases/databases.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { PermissionsGuard } from './casl/guards/permissions.guard';
-import { SecurityService } from './common/service/security.service';
 import { CaslModule } from './casl/casl.module';
-import { CommonModule } from './common/common.module';
 import { SubscribersModule } from './subscribers/subscribers.module';
 import { MailModule } from './mail/mail.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -75,14 +73,12 @@ import { ThrottlerModule } from '@nestjs/throttler';
     RolesModule,
     DatabasesModule,
     CaslModule,
-    CommonModule,
     SubscribersModule,
     MailModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    SecurityService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

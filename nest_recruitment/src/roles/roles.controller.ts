@@ -14,6 +14,12 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { ResponseMessage, User } from 'src/auth/decorator/customize';
 import type { IUser } from 'src/users/users.interface';
 import { ApiTags } from '@nestjs/swagger';
+import {
+  CanCreate,
+  CanDelete,
+  CanRead,
+  CanUpdate,
+} from 'src/casl/decorators/check-ability.decorator';
 
 @ApiTags('roles')
 @Controller('roles')
@@ -21,12 +27,14 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Post()
+  @CanCreate('Role')
   @ResponseMessage('create roles')
   create(@Body() createRoleDto: CreateRoleDto, @User() user: IUser) {
     return this.rolesService.create(createRoleDto, user);
   }
 
   @Get()
+  @CanRead('Role')
   @ResponseMessage('fetch roles with pagination ')
   findAll(
     @Query('current') currentPage: string,
@@ -37,12 +45,14 @@ export class RolesController {
   }
 
   @Get(':id')
+  @CanRead('Role')
   @ResponseMessage('fetch roles by id ')
   findOne(@Param('id') id: string) {
     return this.rolesService.findOne(id);
   }
 
   @Patch(':id')
+  @CanUpdate('Role')
   @ResponseMessage('update roles by id ')
   update(
     @Param('id') id: string,
@@ -53,6 +63,7 @@ export class RolesController {
   }
 
   @Delete(':id')
+  @CanDelete('Role')
   @ResponseMessage('delete roles by id ')
   remove(@Param('id') id: string, @User() user: IUser) {
     return this.rolesService.remove(id, user);

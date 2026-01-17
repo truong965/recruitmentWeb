@@ -78,25 +78,27 @@ export class PermissionsGuard implements CanActivate {
       return Promise.resolve(this.legacyPermissionCheck(context, user));
     }
 
-    // Build CASL ability
-    const ability = this.caslAbilityFactory.createForUser(user as any);
+    // Build CASL ability - now async
+    return this.caslAbilityFactory
+      .createForUser(user as any)
+      .then((ability) => {
+        // Check tất cả required permissions
+        for (const permission of requiredPermissions) {
+          const canAccess = ability.can(
+            permission.action,
+            permission.subject,
+            permission.field,
+          );
 
-    // Check tất cả required permissions
-    for (const permission of requiredPermissions) {
-      const canAccess = ability.can(
-        permission.action,
-        permission.subject,
-        permission.field,
-      );
+          if (!canAccess) {
+            throw new ForbiddenException(
+              `You don't have permission to ${permission.action} ${permission.subject}`,
+            );
+          }
+        }
 
-      if (!canAccess) {
-        throw new ForbiddenException(
-          `You don't have permission to ${permission.action} ${permission.subject}`,
-        );
-      }
-    }
-
-    return Promise.resolve(true);
+        return true;
+      });
   }
 
   // Legacy check cho compatibility
