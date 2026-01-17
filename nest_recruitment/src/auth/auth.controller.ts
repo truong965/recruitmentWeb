@@ -51,6 +51,27 @@ export class AuthController {
     return this.authService.register(registerUserDto);
   }
 
+  @Public()
+  @ResponseMessage('logout')
+  @Post('/logout')
+  handleLogout(
+    @User() user: IUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.handleLogout(response, user);
+  }
+
+  @Public()
+  @ResponseMessage('get user by refresh token')
+  @Post('/refresh')
+  handleRefreshToken(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refresh_token = request.cookies['refresh_token'] as string;
+    return this.authService.processNewToken(refresh_token, response);
+  }
+
   @UseGuards(JwtAuthGuard)
   @SkipCheckPermission()
   @ResponseMessage('profile')
@@ -65,7 +86,7 @@ export class AuthController {
   @Get('/account')
   async getAccount(@User() user: IUser) {
     const temp = await this.roleService.findOne(user.role._id);
-
+    // console.log(user);
     // Định nghĩa kiểu dữ liệu thực tế mà temp.permissions đang chứa (sau khi populate)
     type PopulatedPermission = {
       _id: mongoose.Types.ObjectId;
@@ -91,27 +112,5 @@ export class AuthController {
       }));
     }
     return { user };
-  }
-
-  @Public()
-  @ResponseMessage('get user by refresh token')
-  @SkipCheckPermission()
-  @Post('/refresh')
-  handleRefreshToken(
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const refresh_token = request.cookies['refresh_token'] as string;
-    return this.authService.processNewToken(refresh_token, response);
-  }
-  @Public()
-  @SkipCheckPermission()
-  @ResponseMessage('logout')
-  @Post('/logout')
-  handleLogout(
-    @User() user: IUser,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    return this.authService.handleLogout(response, user);
   }
 }

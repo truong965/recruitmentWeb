@@ -5,9 +5,9 @@ import {
   IsDate,
   IsInt,
   IsNotEmpty,
-  IsNotEmptyObject,
   IsNumber,
   IsObject,
+  IsOptional,
   IsPositive,
   IsString,
   ValidateNested,
@@ -35,7 +35,7 @@ export class CreateJobDto {
   @IsString({ each: true, message: 'Skill phải là chuỗi' })
   skills: string[];
 
-  @IsNotEmptyObject()
+  @IsOptional()
   @IsObject()
   @ValidateNested()
   @Type(() => Company)

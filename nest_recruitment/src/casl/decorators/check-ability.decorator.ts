@@ -4,7 +4,16 @@ import { SetMetadata } from '@nestjs/common';
 export const CHECK_ABILITY_KEY = 'check_ability';
 
 export type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete';
-export type Subjects = 'Company' | 'User' | 'Job' | 'Resume' | 'all';
+export type Subjects =
+  | 'Company'
+  | 'User'
+  | 'Job'
+  | 'Resume'
+  | 'Role'
+  | 'Permission'
+  | 'File'
+  | 'Subscriber'
+  | 'all';
 
 export interface RequiredPermission {
   action: Actions;
@@ -20,7 +29,7 @@ export const CheckAbility = (action: Actions, subject: Subjects) =>
 export const CheckAbilities = (...permissions: RequiredPermission[]) =>
   SetMetadata(CHECK_ABILITY_KEY, permissions);
 
-// Helper decorators cho từng action
+// Helper decorators for each action
 export const CanCreate = (subject: Subjects) => CheckAbility('create', subject);
 export const CanRead = (subject: Subjects) => CheckAbility('read', subject);
 export const CanUpdate = (subject: Subjects) => CheckAbility('update', subject);

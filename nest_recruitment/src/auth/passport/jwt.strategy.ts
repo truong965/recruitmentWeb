@@ -31,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: IUser) {
-    const { _id, name, email, role } = payload;
+    const { _id, name, email, role, company } = payload;
 
     // Type-safe casting
     const userRole = role as unknown as { _id: string; name: string };
@@ -42,6 +42,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         name,
         email,
         role,
+        company,
         permissions: [],
       };
     }
@@ -54,6 +55,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         name,
         email,
         role,
+        company,
         permissions: cached,
       };
     }
@@ -75,6 +77,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         name,
         email,
         role,
+        company,
         permissions,
       };
     } catch (error) {
@@ -84,6 +87,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         name,
         email,
         role,
+        company,
         permissions: [],
       };
     }

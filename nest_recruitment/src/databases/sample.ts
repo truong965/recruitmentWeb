@@ -1,7 +1,5 @@
-export const ADMIN_ROLE = 'SUPER_ADMIN';
-export const USER_ROLE = 'NORMAL_USER';
-
 export const INIT_PERMISSIONS = [
+  // companies
   {
     _id: '648ab415f4328bd3153ee211',
     name: 'Get Company with paginate',
@@ -86,6 +84,7 @@ export const INIT_PERMISSIONS = [
     updatedAt: '2023-06-15T06:54:32.799Z',
     __v: 0,
   },
+  //users
   {
     _id: '648ab6d3fa16b294212e4033',
     name: 'Create User',
@@ -137,7 +136,7 @@ export const INIT_PERMISSIONS = [
   {
     _id: '648ab719fa16b294212e4042',
     name: 'Update User',
-    apiPath: '/api/v1/users/:id',
+    apiPath: '/api/v1/users/',
     method: 'PATCH',
     module: 'USERS',
     createdBy: {
@@ -166,6 +165,7 @@ export const INIT_PERMISSIONS = [
     updatedAt: '2023-06-15T07:00:56.274Z',
     __v: 0,
   },
+  //files
   {
     _id: '648ab750fa16b294212e404c',
     name: 'Upload Single File',
@@ -182,6 +182,7 @@ export const INIT_PERMISSIONS = [
     updatedAt: '2023-06-15T07:01:36.923Z',
     __v: 0,
   },
+  //jobs
   {
     _id: '648ad488dafdb9754f40b846',
     name: 'Create a Job',
@@ -262,6 +263,7 @@ export const INIT_PERMISSIONS = [
     updatedAt: '2023-06-15T09:07:37.896Z',
     __v: 0,
   },
+  //resumes
   {
     _id: '648ad4fedafdb9754f40b863',
     name: 'Create a Resume',
@@ -358,6 +360,7 @@ export const INIT_PERMISSIONS = [
     updatedAt: '2023-06-15T09:10:05.961Z',
     __v: 0,
   },
+  // permissions
   {
     _id: '648ad59adafdb9754f40b881',
     name: 'Create a permission',
@@ -438,6 +441,7 @@ export const INIT_PERMISSIONS = [
     updatedAt: '2023-06-15T09:12:11.323Z',
     __v: 0,
   },
+  //roles
   {
     _id: '648ad613dafdb9754f40b89a',
     name: 'Create Role',
@@ -508,6 +512,87 @@ export const INIT_PERMISSIONS = [
     apiPath: '/api/v1/roles/:id',
     method: 'DELETE',
     module: 'ROLES',
+    createdBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
+    isDeleted: false,
+    deletedAt: null,
+    createdAt: '2023-06-15T09:13:52.798Z',
+    updatedAt: '2023-06-15T09:13:52.798Z',
+    __v: 0,
+  },
+  //subcribers
+  {
+    _id: '648ad613dafdb9754f40b90a',
+    name: 'Create Subscriber',
+    apiPath: '/api/v1/subscribers',
+    method: 'POST',
+    module: 'SUBSCRIBERS',
+    createdBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
+    isDeleted: false,
+    deletedAt: null,
+    createdAt: '2023-06-15T09:12:51.974Z',
+    updatedAt: '2023-06-15T09:12:51.974Z',
+    __v: 0,
+  },
+  {
+    _id: '648ad622dafdb9754f40b90f',
+    name: 'Fetch Subscribers with paginate',
+    apiPath: '/api/v1/subscribers',
+    method: 'GET',
+    module: 'SUBSCRIBERS',
+    createdBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
+    isDeleted: false,
+    deletedAt: null,
+    createdAt: '2023-06-15T09:13:06.618Z',
+    updatedAt: '2023-06-15T09:13:06.618Z',
+    __v: 0,
+  },
+  {
+    _id: '648ad630dafdb9754f40b916',
+    name: 'Fetch Subscriber by id',
+    apiPath: '/api/v1/subscribers/:id',
+    method: 'GET',
+    module: 'SUBSCRIBERS',
+    createdBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
+    isDeleted: false,
+    deletedAt: null,
+    createdAt: '2023-06-15T09:13:20.853Z',
+    updatedAt: '2023-06-15T09:13:20.853Z',
+    __v: 0,
+  },
+  {
+    _id: '648ad640dafdb9754f40b91b',
+    name: 'Update Subscriber',
+    apiPath: '/api/v1/subscribers',
+    method: 'PATCH',
+    module: 'SUBSCRIBERS',
+    createdBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
+    isDeleted: false,
+    deletedAt: null,
+    createdAt: '2023-06-15T09:13:36.836Z',
+    updatedAt: '2023-06-15T09:13:36.836Z',
+    __v: 0,
+  },
+  {
+    _id: '648ad650dafdb9754f40b920',
+    name: 'Delete a Subscriber',
+    apiPath: '/api/v1/subscribers/:id',
+    method: 'DELETE',
+    module: 'SUBSCRIBERS',
     createdBy: {
       _id: '647b5108a8a243e8191855b5',
       email: 'hoidanit@gmail.com',

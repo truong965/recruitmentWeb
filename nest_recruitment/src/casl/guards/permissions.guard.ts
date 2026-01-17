@@ -1,4 +1,3 @@
-// src/casl/guards/permissions.guard.ts
 import {
   CanActivate,
   ExecutionContext,
@@ -6,15 +5,15 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { CaslAbilityFactory } from '../casl-ability.factory';
+import { CaslAbilityFactory, SUPER_ADMIN } from '../casl-ability.factory';
 import {
   CHECK_ABILITY_KEY,
   RequiredPermission,
 } from '../decorators/check-ability.decorator';
-import { ADMIN_ROLE } from 'src/databases/sample';
 import { IS_PUBLIC_PERMISSION } from 'src/auth/decorator/customize';
 import { Request } from 'express';
 import type { IUser } from 'src/users/users.interface';
+
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
@@ -22,7 +21,7 @@ export class PermissionsGuard implements CanActivate {
     private caslAbilityFactory: CaslAbilityFactory,
   ) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): Promise<boolean> {
     // Check xem có skip permission không
     const isSkipPermission = this.reflector.getAllAndOverride<boolean>(
       IS_PUBLIC_PERMISSION,
@@ -30,31 +29,53 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (isSkipPermission) {
-      return true;
+      return Promise.resolve(true);
     }
 
     const request = context.switchToHttp().getRequest<Request>();
     const user = request.user as IUser;
 
+    // If no user, check for public access
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      const requiredPermissions = this.reflector.get<RequiredPermission[]>(
+        CHECK_ABILITY_KEY,
+        context.getHandler(),
+      );
+
+      // If no permission required, allow guest access
+      if (!requiredPermissions || requiredPermissions.length === 0) {
+        return Promise.resolve(true);
+      }
+
+      // Check guest abilities for public resources
+      const guestAbility = this.caslAbilityFactory.createForGuest();
+      for (const permission of requiredPermissions) {
+        const canAccess = guestAbility.can(
+          permission.action,
+          permission.subject,
+          permission.field,
+        );
+        if (!canAccess) {
+          throw new ForbiddenException('User not authenticated');
+        }
+      }
+      return Promise.resolve(true);
     }
 
     // Super Admin bypass
-    if (user.role?.name === ADMIN_ROLE) {
-      return true;
+    if (user.role?.name === SUPER_ADMIN) {
+      return Promise.resolve(true);
     }
 
     // Lấy required permissions từ decorator
-    const requiredPermissions =
-      this.reflector.get<RequiredPermission[]>(
-        CHECK_ABILITY_KEY,
-        context.getHandler(),
-      ) || [];
+    const requiredPermissions = this.reflector.get<RequiredPermission[]>(
+      CHECK_ABILITY_KEY,
+      context.getHandler(),
+    );
 
     // Nếu không có required permissions, fallback về check cũ
-    if (requiredPermissions.length === 0) {
-      return this.legacyPermissionCheck(context, user);
+    if (!requiredPermissions || requiredPermissions.length === 0) {
+      return Promise.resolve(this.legacyPermissionCheck(context, user));
     }
 
     // Build CASL ability
@@ -75,7 +96,7 @@ export class PermissionsGuard implements CanActivate {
       }
     }
 
-    return true;
+    return Promise.resolve(true);
   }
 
   // Legacy check cho compatibility

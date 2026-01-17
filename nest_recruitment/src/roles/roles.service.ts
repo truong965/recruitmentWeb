@@ -7,8 +7,8 @@ import mongoose from 'mongoose';
 import { IUser } from 'src/users/users.interface';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { ADMIN_ROLE } from 'src/databases/sample';
 import { PermissionsService } from 'src/permissions/permissions.service';
+import { SUPER_ADMIN } from 'src/casl/casl-ability.factory';
 
 @Injectable()
 export class RolesService extends BaseService<RoleDocument> {
@@ -59,7 +59,7 @@ export class RolesService extends BaseService<RoleDocument> {
   }
   async remove(id: string, user: IUser) {
     const role = await this.roleModel.findById(id);
-    if (role?.name === ADMIN_ROLE) {
+    if (role?.name === SUPER_ADMIN) {
       throw new BadRequestException(`can't delete admin role`);
     }
     if (!mongoose.Types.ObjectId.isValid(id)) return 'not found';

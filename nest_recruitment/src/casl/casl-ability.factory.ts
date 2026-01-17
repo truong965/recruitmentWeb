@@ -9,38 +9,55 @@ import {
 import { Injectable } from '@nestjs/common';
 import { Company } from 'src/companies/schemas/company.schema';
 import { User } from 'src/users/schemas/user.schema';
-import { ADMIN_ROLE } from 'src/databases/sample';
 import mongoose from 'mongoose';
+import { Job } from 'src/jobs/schemas/job.schema';
+import { Resume } from 'src/resumes/schemas/resume.schema';
 
 // Define all possible actions
 type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete';
 
 // Define all subjects (resources)
 type Subjects =
-  | InferSubjects<typeof Company | typeof User>
+  | InferSubjects<typeof Company | typeof User | typeof Job | typeof Resume>
   | 'all'
-  | 'Company'
   | 'User'
+  | 'Role'
+  | 'Permission'
+  | 'Company'
   | 'Job'
-  | 'Resume';
+  | 'Resume'
+  | 'File'
+  | 'Subscriber';
 
 export type AppAbility = Ability<[Actions, Subjects]>;
 
-// Interface cho user từ JWT
+// Interface cho user từ JWT - compatible với IUser
 export interface CaslUser {
   _id: mongoose.Types.ObjectId;
   email: string;
+  name?: string;
+  age?: number;
+  gender?: string;
+  address?: string;
   role: {
     _id: string;
     name: string;
   };
-  permissions: Array<{
-    _id: mongoose.Types.ObjectId;
+  company?: {
+    _id: mongoose.Types.ObjectId | string;
+    name?: string;
+  };
+  permissions?: Array<{
+    _id: mongoose.Types.ObjectId | string;
     apiPath: string;
     method: string;
     module: string;
   }>;
 }
+
+export const SUPER_ADMIN = 'SUPER_ADMIN';
+export const HR_ROLE = 'HR';
+export const USER_ROLE = 'USER';
 
 @Injectable()
 export class CaslAbilityFactory {
@@ -48,10 +65,9 @@ export class CaslAbilityFactory {
     const { can, build } = new AbilityBuilder<AppAbility>(
       Ability as AbilityClass<AppAbility>,
     );
-    const permissions = user.permissions ?? [];
 
-    // SUPER ADMIN - full access
-    if (user.role.name === ADMIN_ROLE) {
+    // SUPER ADMIN - full access to everything
+    if (user.role.name === SUPER_ADMIN) {
       can('manage', 'all');
       return build({
         detectSubjectType: (item) =>
@@ -59,22 +75,111 @@ export class CaslAbilityFactory {
       });
     }
 
-    // Map permissions từ DB sang CASL abilities
-    permissions.forEach((permission) => {
-      const action = this.mapMethodToAction(permission.method);
-      const subject = this.mapModuleToSubject(permission.module);
+    // HR ROLE - Specific permissions per module
+    if (user.role.name === HR_ROLE) {
+      // USERS Module
+      // HR can CRUD users in their own company
+      can(['create', 'read', 'update', 'delete'], 'User', {
+        'company._id': user.company?._id?.toString(),
+      });
 
-      if (action && subject) {
-        // Nếu là resource của chính user (ownership)
-        if (this.isOwnershipRequired(permission.apiPath)) {
-          can(action, subject as ExtractSubjectType<Subjects>, {
-            'createdBy._id': user._id.toString(),
-          });
-        } else {
-          can(action, subject as ExtractSubjectType<Subjects>);
-        }
-      }
+      // ROLES & PERMISSIONS Module
+      // HR can only read
+      can('read', 'Role');
+      can('read', 'Permission');
+
+      // COMPANIES Module
+      // HR can update their own company
+      can('update', 'Company', {
+        _id: user.company?._id?.toString(),
+      });
+      // HR cannot create or delete companies, but can read all (public)
+      can('read', 'Company');
+
+      // JOBS Module
+      // HR can CRUD jobs in their own company
+      can(['create', 'read', 'update', 'delete'], 'Job', {
+        'company._id': user.company?._id?.toString(),
+      });
+
+      // RESUMES Module
+      // HR can read resumes applied to jobs in their company
+      // Note: This requires custom logic in the controller due to nested relationship
+      can('read', 'Resume');
+
+      // FILES Module
+      // HR can upload, read, and delete own files
+      can('create', 'File');
+      can(['read', 'delete'], 'File', {
+        userId: user._id.toString(),
+      });
+
+      // SUBSCRIBERS Module
+      // HR can read subscribers list
+      can('read', 'Subscriber');
+      return build({
+        detectSubjectType: (item) =>
+          item.constructor as ExtractSubjectType<Subjects>,
+      });
+    }
+
+    // USER ROLE - Limited permissions
+    if (user.role.name === USER_ROLE) {
+      // USERS Module
+      // USER can read and update only their own profile
+      can(['read', 'update'], 'User', {
+        _id: user._id.toString(),
+      });
+
+      // COMPANIES Module
+      // USER can read all companies (public)
+      can('read', 'Company');
+
+      // JOBS Module
+      // USER can read all jobs (public)
+      can('read', 'Job');
+
+      // RESUMES Module
+      // USER can create, read, update, delete own resumes
+      can(['create', 'read', 'update', 'delete'], 'Resume', {
+        userId: user._id.toString(),
+      });
+
+      // FILES Module
+      // USER can upload, read, delete own files
+      can('create', 'File');
+      can(['read', 'delete'], 'File', {
+        userId: user._id.toString(),
+      });
+
+      // SUBSCRIBERS Module
+      // USER can create (subscribe) and delete (unsubscribe) only
+      can(['create', 'delete'], 'Subscriber');
+
+      return build({
+        detectSubjectType: (item) =>
+          item.constructor as ExtractSubjectType<Subjects>,
+      });
+    }
+
+    // Default: no permissions for unknown roles
+    return build({
+      detectSubjectType: (item) =>
+        item.constructor as ExtractSubjectType<Subjects>,
     });
+  }
+
+  // Helper method to create ability for guest/unauthenticated users
+  createForGuest() {
+    const { can, build } = new AbilityBuilder<AppAbility>(
+      Ability as AbilityClass<AppAbility>,
+    );
+
+    // Guest can read public resources
+    can('read', 'Company');
+    can('read', 'Job');
+    can('create', 'Subscriber'); // Can subscribe
+    can('delete', 'Subscriber'); // Can unsubscribe (if has email match)
 
     return build({
       detectSubjectType: (item) =>
@@ -97,17 +202,26 @@ export class CaslAbilityFactory {
   // Map module sang subject
   private mapModuleToSubject(module: string): Subjects | null {
     const mapping: Record<string, Subjects> = {
-      COMPANIES: 'Company',
       USERS: 'User',
+      ROLES: 'Role',
+      PERMISSIONS: 'Permission',
+      COMPANIES: 'Company',
       JOBS: 'Job',
       RESUMES: 'Resume',
+      FILES: 'File',
+      SUBSCRIBERS: 'Subscriber',
     };
     return mapping[module] || null;
   }
 
-  // Kiểm tra endpoint có cần check ownership không
   private isOwnershipRequired(apiPath: string): boolean {
-    const ownershipPaths = ['/api/v1/companies/:id', '/api/v1/resumes/:id'];
+    const ownershipPaths = [
+      '/api/v1/users/:id',
+      '/api/v1/companies/:id',
+      '/api/v1/jobs/:id',
+      '/api/v1/resumes/:id',
+      '/api/v1/files/:id',
+    ];
 
     return ownershipPaths.some((path) => {
       const pattern = path.replace(':id', '[^/]+');

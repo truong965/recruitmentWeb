@@ -10,6 +10,11 @@ export interface IUser {
     _id: string;
     name: string;
   };
+  company?: {
+    _id: mongoose.Types.ObjectId;
+    name?: string;
+    logo?: string;
+  };
   permissions?: {
     _id: string;
     name: string;

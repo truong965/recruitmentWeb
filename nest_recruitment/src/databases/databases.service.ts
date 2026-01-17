@@ -9,14 +9,10 @@ import { Role, RoleDocument } from 'src/roles/schemas/role.schema';
 import { User, UserDocument } from 'src/users/schemas/user.schema';
 
 import { UsersService } from 'src/users/users.service';
-import {
-  ADMIN_ROLE,
-  INIT_COMPANIES,
-  INIT_PERMISSIONS,
-  USER_ROLE,
-} from './sample';
+import { INIT_COMPANIES, INIT_PERMISSIONS } from './sample';
 import type { SoftDeleteModel } from 'mongoose-delete';
 import { Company, CompanyDocument } from 'src/companies/schemas/company.schema';
+import { HR_ROLE, SUPER_ADMIN, USER_ROLE } from 'src/casl/casl-ability.factory';
 
 @Injectable()
 export class DatabasesService implements OnModuleInit {
@@ -52,29 +48,86 @@ export class DatabasesService implements OnModuleInit {
 
       // create role
       if (countRole === 0) {
-        const permissions = await this.permissionsModel.find({}).select('_id');
+        const allPermissions = await this.permissionsModel
+          .find({})
+          .select('_id name apiPath method module');
+        const hrPermissions = allPermissions.filter((p) => {
+          // HR full quyền với Users, Jobs, Files
+          if (['USERS', 'JOBS', 'FILES'].includes(p.module)) return true;
+
+          // HR chỉ được Xem và Update Companies (Không được Create/Delete)
+          if (
+            p.module === 'COMPANIES' &&
+            p.method !== 'POST' &&
+            p.method !== 'DELETE'
+          )
+            return true;
+
+          // HR chỉ được Xem Resumes (Bao gồm cả endpoint search by-user dùng method POST)
+          if (
+            p.module === 'RESUMES' &&
+            (p.method === 'GET' || p.apiPath.includes('by-user'))
+          )
+            return true;
+
+          // HR chỉ được Xem Roles, Permissions, Subscribers (Read-only)
+          if (
+            ['ROLES', 'PERMISSIONS', 'SUBSCRIBERS'].includes(p.module) &&
+            p.method === 'GET'
+          )
+            return true;
+
+          return false;
+        });
+        const userPermissions = allPermissions.filter((p) => {
+          // User full quyền với Resumes (CRUD của chính mình), Files
+          if (['RESUMES', 'FILES'].includes(p.module)) return true;
+
+          // User được xem và sửa bản thân (Users)
+          if (
+            p.module === 'USERS' &&
+            (p.method === 'GET' || p.method === 'PATCH')
+          )
+            return true;
+
+          // User chỉ được xem Jobs, Companies
+          if (['JOBS', 'COMPANIES'].includes(p.module) && p.method === 'GET')
+            return true;
+
+          // User không có quyền với Roles, Permissions, Subscribers (API subscribers public không cần check DB permission này nếu dùng @Public)
+          return false;
+        });
         await this.rolesModel.insertMany([
           {
-            name: ADMIN_ROLE as string,
+            name: SUPER_ADMIN as string,
             description: 'Admin thì full quyền :v',
             isActive: true,
-            permissions: permissions,
+            permissions: allPermissions,
+          },
+          {
+            name: HR_ROLE as string,
+            description: 'HR',
+            isActive: true,
+            permissions: hrPermissions, //không set quyền, chỉ cần add ROLE
           },
           {
             name: USER_ROLE as string,
             description: 'Người dùng/Ứng viên sử dụng hệ thống',
             isActive: true,
-            permissions: [], //không set quyền, chỉ cần add ROLE
+            permissions: userPermissions, //không set quyền, chỉ cần add ROLE
           },
         ]);
       }
       // create user
       if (countUser === 0) {
         const adminRole = await this.rolesModel.findOne({
-          name: ADMIN_ROLE as string,
+          name: SUPER_ADMIN as string,
         });
         const userRole = await this.rolesModel.findOne({
           name: USER_ROLE as string,
+        });
+        const hrRole = await this.rolesModel.findOne({
+          name: HR_ROLE as string,
         });
         await this.usersModel.insertMany([
           {
@@ -90,18 +143,40 @@ export class DatabasesService implements OnModuleInit {
           },
           {
             name: "I'm Hỏi Dân IT",
-            email: 'hoidanit@gmail.com',
+            email: 'hr@gmail.com',
             password: this.usersService.getHashPassword(
               this.configService.get<string>('INIT_PASSWORD')!,
             ),
             age: 96,
             gender: 'MALE',
             address: 'VietNam',
-            role: adminRole?._id,
+            role: hrRole?._id,
+          },
+          {
+            name: "I'm Hỏi Dân IT",
+            email: 'hr2@gmail.com',
+            password: this.usersService.getHashPassword(
+              this.configService.get<string>('INIT_PASSWORD')!,
+            ),
+            age: 96,
+            gender: 'MALE',
+            address: 'VietNam',
+            role: hrRole?._id,
           },
           {
             name: "I'm normal user",
             email: 'user@gmail.com',
+            password: this.usersService.getHashPassword(
+              this.configService.get<string>('INIT_PASSWORD')!,
+            ),
+            age: 69,
+            gender: 'MALE',
+            address: 'VietNam',
+            role: userRole?._id,
+          },
+          {
+            name: "I'm normal user",
+            email: 'user2@gmail.com',
             password: this.usersService.getHashPassword(
               this.configService.get<string>('INIT_PASSWORD')!,
             ),

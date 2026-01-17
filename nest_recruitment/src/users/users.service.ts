@@ -9,7 +9,7 @@ import type { SoftDeleteModel } from 'mongoose-delete';
 import type { IUser } from './users.interface';
 import { BaseService } from 'src/common/service/base.service';
 import { Role, RoleDocument } from 'src/roles/schemas/role.schema';
-import { USER_ROLE } from 'src/databases/sample';
+import { USER_ROLE } from 'src/casl/casl-ability.factory';
 
 @Injectable()
 export class UsersService extends BaseService<UserDocument> {

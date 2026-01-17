@@ -27,20 +27,30 @@ export abstract class BaseService<T extends Document & BaseSchema> {
   }
 
   // 2. FindAll - Xử lý phân trang, sort, filter
-  async findAll(currentPage: number, limit: number, qs: string) {
+  async findAll(
+    currentPage: number,
+    limit: number,
+    qs: string,
+    filterOverride?: FilterQuery<T>,
+  ) {
     const { filter, sort, population, projection } = aqp(qs);
 
     delete filter.current;
     delete filter.pageSize;
 
+    // [!code focus] Merge filter từ query string với filter ép buộc (ví dụ: filter theo companyId của HR)
+    // filterOverride sẽ ghi đè hoặc gộp vào filter gốc
+    const combinedFilter = { ...filter, ...filterOverride };
+
     const defaultLimit = +limit ? +limit : 10;
     const offset = (currentPage - 1) * defaultLimit;
 
-    const totalItems = (await this.model.find(filter)).length;
+    // [!code focus] Sử dụng combinedFilter thay vì filter
+    const totalItems = (await this.model.find(combinedFilter)).length;
     const totalPages = Math.ceil(totalItems / defaultLimit);
 
     const result = await this.model
-      .find(filter)
+      .find(combinedFilter) // [!code focus]
       .limit(defaultLimit)
       .skip(offset)
       .sort(sort as any)

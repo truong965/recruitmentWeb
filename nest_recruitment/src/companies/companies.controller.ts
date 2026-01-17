@@ -16,7 +16,6 @@ import type { IUser } from 'src/users/users.interface';
 import {
   CanCreate,
   CanDelete,
-  CanRead,
   CanUpdate,
 } from 'src/casl/decorators/check-ability.decorator';
 import { SecurityService } from 'src/common/service/security.service';
@@ -44,7 +43,6 @@ export class CompaniesController {
 
   @Public()
   @Get()
-  @CanRead('Company')
   @ResponseMessage('fetch companies with pagination')
   findAll(
     @Query('current') currentPage: string,
@@ -55,7 +53,6 @@ export class CompaniesController {
   }
 
   @Public()
-  @CanRead('Company')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.companiesService.findOne(id);
