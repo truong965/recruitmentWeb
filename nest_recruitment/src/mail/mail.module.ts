@@ -6,6 +6,13 @@ import { ConfigService } from '@nestjs/config';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { JobsModule } from 'src/jobs/jobs.module';
 import { SubscribersModule } from 'src/subscribers/subscribers.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import {
+  Subscriber,
+  SubscriberSchema,
+} from 'src/subscribers/schemas/subscriber.schema';
+import { Job, JobSchema } from 'src/jobs/schemas/job.schema';
+import { join } from 'path';
 @Module({
   imports: [
     MailerModule.forRootAsync({
@@ -30,6 +37,10 @@ import { SubscribersModule } from 'src/subscribers/subscribers.module';
       }),
       inject: [ConfigService],
     }),
+    MongooseModule.forFeature([
+      { name: Subscriber.name, schema: SubscriberSchema },
+      { name: Job.name, schema: JobSchema },
+    ]),
     JobsModule,
     SubscribersModule,
   ],
@@ -37,7 +48,3 @@ import { SubscribersModule } from 'src/subscribers/subscribers.module';
   providers: [MailService],
 })
 export class MailModule {}
-
-function join(__dirname: string, arg1: string): string | undefined {
-  throw new Error('Function not implemented.');
-}
