@@ -154,4 +154,15 @@ export class PermissionCheckService {
   canUserManageSubscriber(email: string, subscriberEmail: string): boolean {
     return this.isOwner(email, subscriberEmail);
   }
+
+  /**
+   * Check if user can delete their own account
+   * User can only delete their own account
+   */
+  canUserDeleteAccount(
+    userId: mongoose.Types.ObjectId | string,
+    targetUserId: mongoose.Types.ObjectId | string,
+  ): boolean {
+    return this.isOwner(userId, targetUserId);
+  }
 }

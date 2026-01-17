@@ -78,8 +78,9 @@ export class CaslAbilityFactory {
     // HR ROLE - Specific permissions per module
     if (user.role.name === HR_ROLE) {
       // USERS Module
-      // HR can CRUD users in their own company
-      can(['create', 'read', 'update', 'delete'], 'User', {
+      // HR can CRUD users in their own company (excluding password, role, company fields)
+      // Note: Controller must validate that password, role, company are not updated
+      can(['read', 'update'], 'User', {
         'company._id': user.company?._id?.toString(),
       });
 
@@ -127,7 +128,12 @@ export class CaslAbilityFactory {
     if (user.role.name === USER_ROLE) {
       // USERS Module
       // USER can read and update only their own profile
+      // Note: Controller must validate that password, role, company are not updated
       can(['read', 'update'], 'User', {
+        _id: user._id.toString(),
+      });
+      // USER can delete their own account
+      can('delete', 'User', {
         _id: user._id.toString(),
       });
 

@@ -12,28 +12,20 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { IUser } from './users.interface';
-import { Public, ResponseMessage, User } from 'src/auth/decorator/customize';
+import { ResponseMessage, User } from 'src/auth/decorator/customize';
 import { ApiTags } from '@nestjs/swagger';
 import {
   CanCreate,
   CanRead,
   CanUpdate,
+  CanDelete,
 } from 'src/casl/decorators/check-ability.decorator';
-import { SecurityService } from 'src/common/service/security.service';
-import { InjectModel } from '@nestjs/mongoose';
-import type { SoftDeleteModel } from 'mongoose-delete';
-import { UserDocument } from './schemas/user.schema';
-
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    // @InjectModel(User.name)
-    // private readonly userModel: SoftDeleteModel<UserDocument>,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
-  // // SUPER_ADMIN & HR: Can create users
+  // // SUPER_ADMIN Can create users
   // USER: Cannot create
   @Post()
   @CanCreate('User')
@@ -49,21 +41,15 @@ export class UsersController {
     @Query('current') currentPage: string,
     @Query('pageSize') limit: string,
     @Query() qs: string,
+    @User() user: IUser,
   ) {
-    return this.usersService.findAll(+currentPage, +limit, qs);
+    return this.usersService.findAll(+currentPage, +limit, qs, user);
   }
 
-  @Public()
   @ResponseMessage('fetch user by id')
   @Get(':id')
   async findOne(@Param('id') id: string, @User() user: IUser) {
-    // await this.securityService.verifyOwnership(
-    //   this.userModel,
-    //   id,
-    //   user,
-    //   'read',
-    // );
-    return this.usersService.findOne(id);
+    return this.usersService.findOne(id, user);
   }
 
   @Patch()
@@ -74,6 +60,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @CanDelete('User')
   @ResponseMessage('Delete a User')
   remove(@Param('id') id: string, @User() user: IUser) {
     return this.usersService.remove(id, user);

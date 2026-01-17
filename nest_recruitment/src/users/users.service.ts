@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { CreateUserDto, RegisterUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
@@ -9,13 +13,15 @@ import type { SoftDeleteModel } from 'mongoose-delete';
 import type { IUser } from './users.interface';
 import { BaseService } from 'src/common/service/base.service';
 import { Role, RoleDocument } from 'src/roles/schemas/role.schema';
-import { USER_ROLE } from 'src/casl/casl-ability.factory';
+import { SUPER_ADMIN, USER_ROLE, HR_ROLE } from 'src/casl/casl-ability.factory';
+import { PermissionCheckService } from 'src/casl/services/permission-check.service';
 
 @Injectable()
 export class UsersService extends BaseService<UserDocument> {
   constructor(
     @InjectModel(UserM.name) private userModel: SoftDeleteModel<UserDocument>,
     @InjectModel(Role.name) private roleModel: SoftDeleteModel<RoleDocument>,
+    private permissionCheckService: PermissionCheckService,
   ) {
     super(userModel);
   }
@@ -63,7 +69,7 @@ export class UsersService extends BaseService<UserDocument> {
       age: +createUserDto.age,
       gender: createUserDto.gender,
       address: createUserDto.address,
-      role: createUserDto.role || 'ADMIN',
+      role: createUserDto.role || SUPER_ADMIN,
       company: createUserDto.company,
       createdBy: {
         _id: iUser._id,
@@ -81,10 +87,37 @@ export class UsersService extends BaseService<UserDocument> {
       .select('+password')
       .populate({ path: 'role', select: { name: 1 } });
   }
-  async findOne(id: string) {
+  async findOne(id: string, iUser?: IUser) {
+    if (iUser?.role.name === USER_ROLE || iUser?.role.name === HR_ROLE) {
+      if (!this.permissionCheckService.isOwner(iUser._id, id)) {
+        throw new ForbiddenException('Cannot see other user account');
+      }
+    }
     return await this.userModel
       .findById(id)
       .populate({ path: 'role', select: { name: 1, _id: 1 } });
+  }
+
+  /**
+   * Override findAll to add role-based filtering
+   * HR: See only users in their company
+   * USER: See only their own profile
+   * SUPER_ADMIN: See all users
+   */
+  async findAll(page: number, limit: number, qs: string, iUser?: IUser) {
+    // Build filter override based on user role
+    let filterOverride = {};
+
+    if (iUser?.role.name === HR_ROLE && iUser?.company?._id) {
+      // HR can only see users in their company
+      filterOverride = { 'company._id': iUser.company._id };
+    } else if (iUser?.role.name === USER_ROLE) {
+      // USER can only see their own profile
+      filterOverride = { _id: iUser._id };
+    }
+    // SUPER_ADMIN sees all users (no filter)
+
+    return super.findAll(page, limit, qs, filterOverride);
   }
   isValidPassword(password: string, hashPassword: string) {
     if (!hashPassword) return false;
@@ -93,6 +126,25 @@ export class UsersService extends BaseService<UserDocument> {
   }
 
   async updateUser(updateUserDto: UpdateUserDto, iUser: IUser) {
+    // Get target user to verify permissions
+    const targetUser = await this.userModel.findById(updateUserDto._id);
+    if (!targetUser) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Check permission based on role
+    if (iUser.role.name === USER_ROLE || iUser.role.name === HR_ROLE) {
+      // USER and HR can only update their own profile
+      if (
+        !this.permissionCheckService.canUserUpdateProfile(
+          iUser._id,
+          updateUserDto._id,
+        )
+      ) {
+        throw new ForbiddenException('Cannot update other user profile');
+      }
+    }
+
     const user = await this.userModel.updateOne(
       {
         _id: updateUserDto._id,
@@ -125,5 +177,22 @@ export class UsersService extends BaseService<UserDocument> {
       })
       .populate({ path: 'role', select: { name: 1 } });
     return user;
+  }
+
+  /**
+   * Delete a user account
+   * USER can only delete their own account
+   * SUPER_ADMIN can delete any account
+   */
+  async remove(id: string, iUser: IUser) {
+    // Check permission
+    if (iUser.role.name === USER_ROLE) {
+      // USER can only delete their own account
+      if (!this.permissionCheckService.canUserDeleteAccount(iUser._id, id)) {
+        throw new ForbiddenException('Cannot delete other user account');
+      }
+    }
+
+    return super.remove(id, iUser);
   }
 }
