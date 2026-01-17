@@ -7,10 +7,11 @@ import {
   Param,
   Delete,
   Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserDto, UpdateUserAdminDto } from './dto/update-user.dto';
 import type { IUser } from './users.interface';
 import { ResponseMessage, User } from 'src/auth/decorator/customize';
 import { ApiTags } from '@nestjs/swagger';
@@ -20,6 +21,7 @@ import {
   CanUpdate,
   CanDelete,
 } from 'src/casl/decorators/check-ability.decorator';
+import { SUPER_ADMIN } from 'src/casl/casl-ability.factory';
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
@@ -52,11 +54,24 @@ export class UsersController {
     return this.usersService.findOne(id, user);
   }
 
+  @Patch('admin-update')
+  @CanUpdate('User')
+  @ResponseMessage('Update User by Admin')
+  updateByAdmin(@Body() body: UpdateUserAdminDto, @User() user: IUser) {
+    // Chỉ Admin mới gọi được API này
+    if (user.role.name !== SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Chỉ Admin mới có quyền truy cập endpoint này',
+      );
+    }
+    return this.usersService.updateUser(body, user);
+  }
+
   @Patch()
   @CanUpdate('User')
   @ResponseMessage('Update a User')
-  update(@Body() updateUserDto: UpdateUserDto, @User() user: IUser) {
-    return this.usersService.updateUser(updateUserDto, user);
+  update(@Body() body: UpdateUserDto, @User() user: IUser) {
+    return this.usersService.updateUser(body, user);
   }
 
   @Delete(':id')

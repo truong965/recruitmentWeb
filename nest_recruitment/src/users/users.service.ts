@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { CreateUserDto, RegisterUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserAdminDto, UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 
 import { User as UserM, UserDocument } from './schemas/user.schema';
@@ -125,7 +125,10 @@ export class UsersService extends BaseService<UserDocument> {
     return result;
   }
 
-  async updateUser(updateUserDto: UpdateUserDto, iUser: IUser) {
+  async updateUser(
+    updateUserDto: UpdateUserDto | UpdateUserAdminDto,
+    iUser: IUser,
+  ) {
     // Get target user to verify permissions
     const targetUser = await this.userModel.findById(updateUserDto._id);
     if (!targetUser) {
@@ -134,7 +137,7 @@ export class UsersService extends BaseService<UserDocument> {
 
     // Check permission based on role
     if (iUser.role.name === USER_ROLE || iUser.role.name === HR_ROLE) {
-      // USER and HR can only update their own profile
+      // USER can only update their own profile
       if (
         !this.permissionCheckService.canUserUpdateProfile(
           iUser._id,
@@ -144,6 +147,20 @@ export class UsersService extends BaseService<UserDocument> {
         throw new ForbiddenException('Cannot update other user profile');
       }
     }
+    // else if (iUser.role.name === HR_ROLE) {
+    //   // HR can only update users in their company
+    //   if (
+    //     !this.permissionCheckService.canHRManageUser(
+    //       iUser as any,
+    //       targetUser.company?._id,
+    //     )
+    //   ) {
+    //     throw new ForbiddenException(
+    //       'Cannot update user from different company',
+    //     );
+    //   }
+    // }
+    // SUPER_ADMIN can update any user - no restriction
 
     const user = await this.userModel.updateOne(
       {
