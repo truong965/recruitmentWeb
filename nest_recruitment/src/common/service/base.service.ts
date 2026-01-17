@@ -50,7 +50,7 @@ export abstract class BaseService<T extends Document & BaseSchema> {
     const totalPages = Math.ceil(totalItems / defaultLimit);
 
     const result = await this.model
-      .find(combinedFilter) // [!code focus]
+      .find(combinedFilter)
       .limit(defaultLimit)
       .skip(offset)
       .sort(sort as any)

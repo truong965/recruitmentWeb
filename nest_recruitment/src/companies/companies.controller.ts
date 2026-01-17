@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
@@ -16,33 +17,36 @@ import type { IUser } from 'src/users/users.interface';
 import {
   CanCreate,
   CanDelete,
+  CanRead,
   CanUpdate,
 } from 'src/casl/decorators/check-ability.decorator';
-import { SecurityService } from 'src/common/service/security.service';
 import { Company, CompanyDocument } from './schemas/company.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import type { SoftDeleteModel } from 'mongoose-delete';
 import { ApiTags } from '@nestjs/swagger';
+import { HR_ROLE } from 'src/casl/casl-ability.factory';
+import { PermissionCheckService } from 'src/casl/services/permission-check.service';
 
 @ApiTags('companies')
 @Controller('companies')
-// @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CompaniesController {
   constructor(
     @InjectModel(Company.name)
     private readonly companyModel: SoftDeleteModel<CompanyDocument>,
     private readonly companiesService: CompaniesService,
-    private readonly securityService: SecurityService,
+    private readonly permissionCheckService: PermissionCheckService,
   ) {}
 
   @Post()
   @CanCreate('Company')
+  @ResponseMessage('create companies')
   create(@Body() createCompanyDto: CreateCompanyDto, @User() user: IUser) {
     return this.companiesService.create(createCompanyDto, user);
   }
 
   @Public()
   @Get()
+  @CanRead('Company')
   @ResponseMessage('fetch companies with pagination')
   findAll(
     @Query('current') currentPage: string,
@@ -54,37 +58,45 @@ export class CompaniesController {
 
   @Public()
   @Get(':id')
+  @CanRead('Company')
+  @ResponseMessage('fetch companies by id')
   findOne(@Param('id') id: string) {
     return this.companiesService.findOne(id);
   }
 
+  //HR can update their company
   @Patch(':id')
   @CanUpdate('Company')
+  @ResponseMessage('update Company')
   async update(
     @Param('id') id: string,
     @Body() updateCompanyDto: UpdateCompanyDto,
     @User() user: IUser,
   ) {
-    // Check ownership trước khi update
-    await this.securityService.verifyOwnership(
-      this.companyModel,
+    // Get company before updating
+    const company = (await this.companiesService.findOne(
       id,
-      user,
-      'update', // action
-    );
-    // Nếu qua được bước trên nghĩa là User Hợp lệ + Data Tồn tại
+    )) as CompanyDocument;
+
+    // HR specific permission check - only update their own company
+    if (user.role.name === HR_ROLE && company) {
+      if (
+        !this.permissionCheckService.canHRUpdateCompany(
+          user as any,
+          company._id,
+        )
+      ) {
+        throw new ForbiddenException('Can only update your own company');
+      }
+    }
+
     return this.companiesService.update(id, updateCompanyDto, user);
   }
 
   @Delete(':id')
   @CanDelete('Company')
+  @ResponseMessage('delete Company')
   async remove(@Param('id') id: string, @User() user: IUser) {
-    await this.securityService.verifyOwnership(
-      this.companyModel,
-      id,
-      user,
-      'delete',
-    );
     return this.companiesService.remove(id, user);
   }
 }

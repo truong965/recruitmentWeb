@@ -3,10 +3,18 @@ import { CompaniesService } from './companies.service';
 import { CompaniesController } from './companies.controller';
 import { Company, CompanySchema } from './schemas/company.schema';
 import { MongooseModule } from '@nestjs/mongoose';
+import { CaslModule } from 'src/casl/casl.module';
+import { Job, JobSchema } from 'src/jobs/schemas/job.schema';
+import { User, UserSchema } from 'src/users/schemas/user.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Company.name, schema: CompanySchema }]),
+    MongooseModule.forFeature([
+      { name: Company.name, schema: CompanySchema },
+      { name: Job.name, schema: JobSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
+    CaslModule,
   ],
   controllers: [CompaniesController],
   providers: [CompaniesService],
