@@ -7,26 +7,38 @@ import {
   Param,
   Delete,
   Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SubscribersService } from './subscribers.service';
 import { CreateSubscriberDto } from './dto/create-subscriber.dto';
 import { UpdateSubscriberDto } from './dto/update-subscriber.dto';
-import {
-  ResponseMessage,
-  SkipCheckPermission,
-  User,
-} from 'src/auth/decorator/customize';
+import { ResponseMessage, User } from 'src/auth/decorator/customize';
 import type { IUser } from 'src/users/users.interface';
 import { ApiTags } from '@nestjs/swagger';
+import {
+  CanCreate,
+  CanRead,
+  CanUpdate,
+  CanDelete,
+} from 'src/casl/decorators/check-ability.decorator';
+import { PermissionCheckService } from 'src/casl/services/permission-check.service';
+import { Subscriber, SubscriberDocument } from './schemas/subscriber.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import type { SoftDeleteModel } from 'mongoose-delete';
 
 @ApiTags('subscribers')
 @Controller('subscribers')
 export class SubscribersController {
-  constructor(private readonly subscribersService: SubscribersService) {}
+  constructor(
+    private readonly subscribersService: SubscribersService,
+    @InjectModel(Subscriber.name)
+    private readonly subscriberModel: SoftDeleteModel<SubscriberDocument>,
+    private readonly permissionCheckService: PermissionCheckService,
+  ) {}
 
   @Post()
-  @ResponseMessage('create subscribers')
-  @SkipCheckPermission()
+  @CanCreate('Subscriber')
+  @ResponseMessage('create subscriber')
   create(
     @Body() createSubscriberDto: CreateSubscriberDto,
     @User() user: IUser,
@@ -35,36 +47,83 @@ export class SubscribersController {
   }
 
   @Get()
-  @ResponseMessage('fetch subscribers with pagination ')
+  @CanRead('Subscriber')
+  @ResponseMessage('fetch subscribers with pagination')
   findAll(
     @Query('current') currentPage: string,
     @Query('pageSize') limit: string,
     @Query() qs: string,
+    @User() user?: IUser,
   ) {
-    return this.subscribersService.findAll(+currentPage, +limit, qs);
+    // USER: Only get their own subscribers
+    return this.subscribersService.findAll(+currentPage, +limit, qs, user);
   }
 
   @Get(':id')
-  @SkipCheckPermission()
-  @ResponseMessage('fetch subscribers by id ')
-  findOne(@Param('id') id: string) {
-    return this.subscribersService.findOne(id);
+  @CanRead('Subscriber')
+  @ResponseMessage('fetch subscriber by id')
+  async findOne(@Param('id') id: string, @User() user?: IUser) {
+    const subscriber = (await this.subscribersService.findOneWithPermission(
+      id,
+      user,
+    )) as Subscriber;
+    if (!subscriber) {
+      throw new ForbiddenException(
+        'Subscriber not found or you do not have access',
+      );
+    }
+    return subscriber;
   }
 
-  @Patch('')
-  @SkipCheckPermission()
-  @ResponseMessage('update subscribers by email')
-  update(
+  @Patch(':id')
+  @CanUpdate('Subscriber')
+  @ResponseMessage('update subscriber')
+  async update(
+    @Param('id') id: string,
     @Body() updateSubscriberDto: UpdateSubscriberDto,
     @User() user: IUser,
   ) {
-    return this.subscribersService.updateSub(updateSubscriberDto, user);
+    const subscriber = (await this.subscriberModel.findById(
+      id,
+    )) as SubscriberDocument;
+    if (!subscriber) {
+      throw new ForbiddenException('Subscriber not found');
+    }
+
+    // USER: Check ownership
+    if (
+      !this.permissionCheckService.canUserManageSubscriber(
+        user.email,
+        subscriber.email,
+      )
+    ) {
+      throw new ForbiddenException('Can only update your own subscribers');
+    }
+
+    return this.subscribersService.update(id, updateSubscriberDto, user);
   }
 
   @Delete(':id')
-  @SkipCheckPermission()
-  @ResponseMessage('delete subscribers by id ')
-  remove(@Param('id') id: string, @User() user: IUser) {
+  @CanDelete('Subscriber')
+  @ResponseMessage('delete subscriber')
+  async remove(@Param('id') id: string, @User() user: IUser) {
+    const subscriber = (await this.subscriberModel.findById(
+      id,
+    )) as SubscriberDocument;
+    if (!subscriber) {
+      throw new ForbiddenException('Subscriber not found');
+    }
+
+    // USER: Check ownership
+    if (
+      !this.permissionCheckService.canUserManageSubscriber(
+        user.email,
+        subscriber.email,
+      )
+    ) {
+      throw new ForbiddenException('Can only delete your own subscribers');
+    }
+
     return this.subscribersService.remove(id, user);
   }
 }

@@ -147,4 +147,11 @@ export class PermissionCheckService {
     // Status must be PENDING
     return resumeStatus === ResumeStatus.PENDING.toString();
   }
+
+  /**
+   * Check if user can manage subscriber (own subscriber)
+   */
+  canUserManageSubscriber(email: string, subscriberEmail: string): boolean {
+    return this.isOwner(email, subscriberEmail);
+  }
 }

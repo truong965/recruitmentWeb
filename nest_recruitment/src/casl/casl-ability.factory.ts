@@ -117,9 +117,6 @@ export class CaslAbilityFactory {
         userId: user._id.toString(),
       });
 
-      // SUBSCRIBERS Module
-      // HR can read subscribers list
-      can('read', 'Subscriber');
       return build({
         detectSubjectType: (item) =>
           item.constructor as ExtractSubjectType<Subjects>,
@@ -168,8 +165,8 @@ export class CaslAbilityFactory {
       });
 
       // SUBSCRIBERS Module
-      // USER can create (subscribe) and delete (unsubscribe) only
-      can(['create', 'delete'], 'Subscriber');
+      // USER can crud
+      can(['create', 'delete', 'read', 'update'], 'Subscriber');
 
       return build({
         detectSubjectType: (item) =>
