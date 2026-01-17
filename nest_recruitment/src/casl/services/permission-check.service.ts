@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import mongoose from 'mongoose';
 import { CaslUser } from '../casl-ability.factory';
+import { ResumeStatus } from 'src/resumes/dto/update-resume.dto';
 
 /**
  * Service for checking complex permission rules that require field-level validation
@@ -103,5 +104,47 @@ export class PermissionCheckService {
     targetUserId: mongoose.Types.ObjectId | string,
   ): boolean {
     return this.isOwner(userId, targetUserId);
+  }
+
+  /**
+   * Check if HR can update resume status
+   * HR can only update status for resumes applied to jobs in their company
+   */
+  canHRUpdateResumeStatus(
+    user: CaslUser,
+    jobCompanyId: mongoose.Types.ObjectId | string | undefined,
+  ): boolean {
+    if (!user.company) return false;
+    return this.isCompanyMatch(user.company._id, jobCompanyId);
+  }
+
+  /**
+   * Check if user can update resume data (email, url)
+   * User can only update own resume AND only if status is PENDING
+   */
+  canUserUpdateResumeData(
+    userId: mongoose.Types.ObjectId | string,
+    resumeUserId: mongoose.Types.ObjectId | string,
+    resumeStatus: string,
+  ): boolean {
+    // Must be owner
+    if (!this.isOwner(userId, resumeUserId)) return false;
+    // Status must be PENDING
+    return resumeStatus === ResumeStatus.PENDING.toString();
+  }
+
+  /**
+   * Check if user can delete resume
+   * User can only delete own resume AND only if status is PENDING
+   */
+  canUserDeleteResume(
+    userId: mongoose.Types.ObjectId | string,
+    resumeUserId: mongoose.Types.ObjectId | string,
+    resumeStatus: string,
+  ): boolean {
+    // Must be owner
+    if (!this.isOwner(userId, resumeUserId)) return false;
+    // Status must be PENDING
+    return resumeStatus === ResumeStatus.PENDING.toString();
   }
 }

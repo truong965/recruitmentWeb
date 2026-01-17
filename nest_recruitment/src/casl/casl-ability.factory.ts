@@ -103,8 +103,11 @@ export class CaslAbilityFactory {
       });
 
       // RESUMES Module
-      // HR can read resumes applied to jobs in their company
-      // Note: This requires custom logic in the controller due to nested relationship
+      // HR can update resume status (PENDING → REVIEWING → APPROVED/REJECTED)
+      // for resumes applied to jobs in their company
+      // Note: Requires custom logic in controller to verify job belongs to HR's company
+      can('update', 'Resume');
+      // HR can read all resumes (will be filtered by service to only company jobs)
       can('read', 'Resume');
 
       // FILES Module
@@ -140,8 +143,20 @@ export class CaslAbilityFactory {
       can('read', 'Job');
 
       // RESUMES Module
-      // USER can create, read, update, delete own resumes
-      can(['create', 'read', 'update', 'delete'], 'Resume', {
+      // USER can create resume (apply to job)
+      can('create', 'Resume');
+      // USER can read own resumes
+      can('read', 'Resume', {
+        userId: user._id.toString(),
+      });
+      // USER can update own resume data (email, url) but only if status is PENDING
+      // Requires custom logic in controller to check status
+      can('update', 'Resume', {
+        userId: user._id.toString(),
+      });
+      // USER can delete own resume but only if status is PENDING
+      // Requires custom logic in controller to check status
+      can('delete', 'Resume', {
         userId: user._id.toString(),
       });
 

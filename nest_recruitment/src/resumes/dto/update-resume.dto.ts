@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsEmail } from 'class-validator';
 
 export enum ResumeStatus {
   PENDING = 'PENDING',
@@ -8,7 +8,18 @@ export enum ResumeStatus {
 }
 
 export class UpdateResumeDto {
-  @IsNotEmpty({ message: 'Status không được để trống' })
-  @IsEnum(ResumeStatus, { message: 'Status không hợp lệ' }) // Chỉ cho phép các giá trị trong Enum
-  status: ResumeStatus;
+  // HR: Update status (required when HR updates)
+  @IsOptional()
+  @IsEnum(ResumeStatus, { message: 'Status không hợp lệ' })
+  status?: ResumeStatus;
+
+  // USER: Update email (optional)
+  @IsOptional()
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  email?: string;
+
+  // USER: Update url/cv file (optional)
+  @IsOptional()
+  @IsString({ message: 'URL phải là string' })
+  url?: string;
 }
