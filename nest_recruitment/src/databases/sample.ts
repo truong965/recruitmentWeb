@@ -522,6 +522,23 @@ export const INIT_PERMISSIONS = [
     updatedAt: '2023-06-15T09:13:52.798Z',
     __v: 0,
   },
+  {
+    _id: '648ad640dafdb9754f40b8bb',
+    name: 'Update permission of Role',
+    apiPath: '/api/v1/roles/:id/permissions',
+    method: 'PATCH',
+    module: 'ROLES',
+    createdBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
+    isDeleted: false,
+    deletedAt: null,
+    createdAt: '2023-06-15T09:13:36.836Z',
+    updatedAt: '2023-06-15T09:13:36.836Z',
+    __v: 0,
+  },
+
   //subcribers
   {
     _id: '648ad613dafdb9754f40b90a',
@@ -602,6 +619,27 @@ export const INIT_PERMISSIONS = [
     createdAt: '2023-06-15T09:13:52.798Z',
     updatedAt: '2023-06-15T09:13:52.798Z',
     __v: 0,
+  },
+  //mail
+  {
+    _id: '648ab415f4328bd3153ee299',
+    name: 'Send mail',
+    apiPath: '/api/v1/mail',
+    method: 'GET',
+    module: 'Mail',
+    createdBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
+    isDeleted: false,
+    deletedAt: null,
+    createdAt: '2023-06-15T06:47:49.369Z',
+    updatedAt: '2023-06-15T06:54:05.131Z',
+    __v: 0,
+    updatedBy: {
+      _id: '647b5108a8a243e8191855b5',
+      email: 'hoidanit@gmail.com',
+    },
   },
 ];
 export const INIT_COMPANIES = [

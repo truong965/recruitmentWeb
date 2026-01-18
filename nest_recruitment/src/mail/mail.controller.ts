@@ -1,19 +1,25 @@
-import { Controller, Get } from '@nestjs/common';
-import { Public, ResponseMessage } from 'src/auth/decorator/customize';
+import { Controller, ForbiddenException, Get } from '@nestjs/common';
+import { ResponseMessage, User } from 'src/auth/decorator/customize';
 
-import { Cron } from '@nestjs/schedule';
 import { ApiTags } from '@nestjs/swagger';
 import { MailService } from './mail.service';
+import { SUPER_ADMIN } from 'src/casl/casl-ability.factory';
+import type { IUser } from 'src/users/users.interface';
 @ApiTags('mail')
 @Controller('mail')
 export class MailController {
-  private readonly mailService: MailService;
+  constructor(private readonly mailService: MailService) {}
 
   @Get()
-  @Public()
-  @ResponseMessage('Test email')
-  @Cron('0 0 */10 * *') //At 12:00 AM, every 10 days
-  async handleTestEmail() {
-    await this.mailService.handleTestEmail();
+  @ResponseMessage('send email')
+  async handleTestEmail(@User() user: IUser) {
+    if (user.role.name !== SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Chỉ Admin mới có quyền kích hoạt tính năng này!',
+      );
+    }
+
+    await this.mailService.handleSendEmail();
+    return 'Email process triggered manually';
   }
 }

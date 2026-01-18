@@ -75,4 +75,30 @@ export class RolesService extends BaseService<RoleDocument> {
       },
     );
   }
+  async addPermissions(id: string, permissions: string[], user: IUser) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Role not found');
+    }
+
+    // 1. Thực hiện update
+    const updated = await this.roleModel.updateOne(
+      { _id: id },
+      {
+        $addToSet: { permissions: { $each: permissions } }, // Push và tránh trùng lặp
+        $set: {
+          updatedBy: {
+            _id: user._id,
+            email: user.email,
+          },
+        },
+      },
+    );
+
+    // 2. Clear cache để user nhận quyền mới ngay lập tức
+    if (updated.modifiedCount > 0) {
+      await this.permissionsService.clearCache(id);
+    }
+
+    return updated;
+  }
 }

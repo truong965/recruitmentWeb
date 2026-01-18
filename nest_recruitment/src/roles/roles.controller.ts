@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -20,6 +21,7 @@ import {
   CanRead,
   CanUpdate,
 } from 'src/casl/decorators/check-ability.decorator';
+import mongoose from 'mongoose';
 
 @ApiTags('roles')
 @Controller('roles')
@@ -60,6 +62,25 @@ export class RolesController {
     @User() user: IUser,
   ) {
     return this.rolesService.update(id, updateRoleDto, user);
+  }
+
+  @Patch(':id/permissions')
+  @CanUpdate('Role') // Tận dụng lại quyền Update Role
+  @ResponseMessage('Add permissions to role')
+  async addPermissions(
+    @Param('id') id: string,
+    @Body('permissions') permissions: string[],
+    @User() user: IUser,
+  ) {
+    // Validate đơn giản đầu vào
+    if (!permissions || !Array.isArray(permissions)) {
+      throw new BadRequestException('Permissions phải là một mảng ID');
+    }
+    if (permissions.some((p) => !mongoose.Types.ObjectId.isValid(p))) {
+      throw new BadRequestException('Tồn tại Permission ID không hợp lệ');
+    }
+
+    return this.rolesService.addPermissions(id, permissions, user);
   }
 
   @Delete(':id')
