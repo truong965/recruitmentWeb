@@ -20,12 +20,16 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import type { IUser } from 'src/users/users.interface';
 import { SUPER_ADMIN } from 'src/casl/casl-ability.factory';
 import { RequestUploadDto } from './dto/request-upload.dto';
+import { FilesGateway } from './files.gateway';
 
 @ApiTags('files')
 @Controller('files')
 @UseGuards(JwtAuthGuard)
 export class FilesController {
-  constructor(private readonly filesService: FilesService) {}
+  constructor(
+    private readonly filesService: FilesService,
+    private readonly filesGateway: FilesGateway,
+  ) {}
 
   /**
    * PHASE 1: Request upload - Lấy pre-signed URL
@@ -69,6 +73,20 @@ export class FilesController {
   //   };
   // }
 
+  @Get('websocket/status')
+  @SkipCheckPermission()
+  @ResponseMessage('WebSocket status')
+  async getWebSocketStatus(): Promise<{
+    activeConnections: number;
+    activeUsers: number;
+    status: string;
+  }> {
+    return Promise.resolve({
+      activeConnections: this.filesGateway.getActiveConnections(),
+      activeUsers: this.filesGateway.getActiveUsers(),
+      status: 'operational',
+    });
+  }
   /**
    * Get all files (with pagination)
    */

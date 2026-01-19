@@ -9,6 +9,8 @@ import { File, FileSchema } from './schemas/file.schema';
 import { SQSService } from './sqs.service';
 import { S3EventProcessorService } from './s3-event-processor.service';
 import { S3EventWorkerService } from './s3-event-worker.service';
+import { FilesGateway } from './files.gateway';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { S3EventWorkerService } from './s3-event-worker.service';
     SQSService,
     S3EventProcessorService,
     S3EventWorkerService,
+    FilesGateway,
+    JwtService,
   ],
   exports: [FilesService, S3Service],
 })

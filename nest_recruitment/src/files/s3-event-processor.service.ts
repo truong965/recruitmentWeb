@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SQSService, S3EventRecord, SQSMessage } from './sqs.service';
 import { FileDocument, UploadStatus } from './schemas/file.schema';
+import { FilesGateway } from './files.gateway';
 
 @Injectable()
 export class S3EventProcessorService {
@@ -11,6 +12,7 @@ export class S3EventProcessorService {
   constructor(
     private sqsService: SQSService,
     @InjectModel(File.name) private fileModel: Model<FileDocument>,
+    private filesGateway: FilesGateway,
   ) {}
 
   async processMessages(): Promise<number> {
@@ -97,6 +99,26 @@ export class S3EventProcessorService {
       await file.save();
 
       this.logger.log(`File upload completed: ${s3Key}`);
+
+      if (!file.createdBy || !file.createdBy._id) {
+        this.logger.warn(`File ${s3Key} has no createdBy information`);
+        return;
+      }
+      const userId = file.createdBy._id.toString();
+      this.filesGateway.notifyUploadComplete(userId, {
+        fileId: file._id.toString(),
+        fileName: file.fileName,
+        originalName: file.originalName,
+        s3Key: file.s3Key,
+        size: file.size,
+        mimeType: file.mimeType,
+        status: file.status,
+        uploadedAt: file.uploadedAt,
+        eTag: file.eTag,
+        versionId: file.versionId,
+      });
+
+      this.logger.log(`WebSocket notification sent to user ${userId}`);
     } catch (error) {
       this.logger.error(`Failed to update file status for ${s3Key}`, error);
       throw error;

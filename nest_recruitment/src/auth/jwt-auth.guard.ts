@@ -15,6 +15,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   canActivate(context: ExecutionContext) {
+    if (context.getType() !== 'http') {
+      return true;
+    }
     return super.canActivate(context);
   }
 
