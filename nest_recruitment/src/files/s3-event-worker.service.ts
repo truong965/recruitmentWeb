@@ -12,6 +12,11 @@ interface QueueAttributes {
   ApproximateNumberOfMessages?: string;
   [key: string]: string | undefined; // Cho phép các key khác
 }
+interface ProcessResult {
+  processed: number;
+  failed: number;
+  retried: number;
+}
 @Injectable()
 export class S3EventWorkerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(S3EventWorkerService.name);
@@ -52,10 +57,10 @@ export class S3EventWorkerService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`Queue has ${messageCount} messages`);
       }
 
-      const processed = await this.s3EventProcessor.processMessages();
+      const result = await this.s3EventProcessor.processMessages();
 
-      if (processed > 0) {
-        this.logger.log(`Processed ${processed} messages`);
+      if (result.processed > 0) {
+        this.logger.log(`Processed ${result.processed} messages`);
       }
     } catch (error) {
       this.logger.error('Error in worker process', error);
@@ -64,7 +69,7 @@ export class S3EventWorkerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async processQueueManually(): Promise<number> {
+  async processQueueManually(): Promise<ProcessResult> {
     this.logger.log('Manual queue processing triggered');
     return await this.s3EventProcessor.processMessages();
   }

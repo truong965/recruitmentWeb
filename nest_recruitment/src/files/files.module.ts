@@ -11,6 +11,7 @@ import { S3EventProcessorService } from './s3-event-processor.service';
 import { S3EventWorkerService } from './s3-event-worker.service';
 import { FilesGateway } from './files.gateway';
 import { JwtService } from '@nestjs/jwt';
+import { CleanupService } from './cleanup.service';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { JwtService } from '@nestjs/jwt';
     S3EventWorkerService,
     FilesGateway,
     JwtService,
+    CleanupService,
   ],
   exports: [FilesService, S3Service],
 })

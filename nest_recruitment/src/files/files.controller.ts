@@ -21,6 +21,7 @@ import type { IUser } from 'src/users/users.interface';
 import { SUPER_ADMIN } from 'src/casl/casl-ability.factory';
 import { RequestUploadDto } from './dto/request-upload.dto';
 import { FilesGateway } from './files.gateway';
+import { CleanupService } from './cleanup.service';
 
 @ApiTags('files')
 @Controller('files')
@@ -29,6 +30,7 @@ export class FilesController {
   constructor(
     private readonly filesService: FilesService,
     private readonly filesGateway: FilesGateway,
+    private readonly cleanupService: CleanupService,
   ) {}
 
   /**
@@ -172,5 +174,52 @@ export class FilesController {
 
     await this.filesService.remove(id);
     return { message: 'File deleted successfully' };
+  }
+  @Get('cleanup/stats')
+  @SkipCheckPermission()
+  @ResponseMessage('Get cleanup statistics')
+  async getCleanupStats(@User() user: IUser) {
+    if (user.role?.name !== SUPER_ADMIN) {
+      throw new ForbiddenException('Admin only');
+    }
+
+    return this.cleanupService.getCleanupStats();
+  }
+
+  @Post('cleanup/pending')
+  @SkipCheckPermission()
+  @ResponseMessage('Cleanup expired pending files')
+  async cleanupPending(
+    @User() user: IUser,
+    @Body('ttlSeconds') ttlSeconds?: number,
+  ) {
+    if (user.role?.name !== SUPER_ADMIN) {
+      throw new ForbiddenException('Admin only');
+    }
+
+    return this.cleanupService.cleanupPendingByTTL(ttlSeconds || 3600);
+  }
+
+  @Post('cleanup/orphaned')
+  @SkipCheckPermission()
+  @ResponseMessage('Cleanup orphaned files')
+  async cleanupOrphaned(@User() user: IUser) {
+    if (user.role?.name !== SUPER_ADMIN) {
+      throw new ForbiddenException('Admin only');
+    }
+
+    return this.cleanupService.cleanupOrphanedFiles();
+  }
+
+  @Delete('cleanup/:id')
+  @SkipCheckPermission()
+  @ResponseMessage('Manual cleanup file')
+  async cleanupManual(@Param('id') id: string, @User() user: IUser) {
+    if (user.role?.name !== SUPER_ADMIN) {
+      throw new ForbiddenException('Admin only');
+    }
+
+    await this.cleanupService.cleanupManual(id);
+    return { message: 'File cleaned up successfully' };
   }
 }

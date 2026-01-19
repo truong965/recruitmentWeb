@@ -29,9 +29,32 @@ interface JwtPayload {
 }
 @WebSocketGateway({
   cors: {
-    //     origin: ['http://localhost:3000', 'http://localhost:3001'],
-    origin: '*',
+    /**
+     * [CORS FIX] Bảo mật kết nối WebSocket
+     * LOGIC:
+     * - Thay vì để origin: '*', ta sử dụng callback để kiểm tra nguồn gốc request.
+     * - Chỉ cho phép các domain trong Whitelist (Localhost, Frontend URL, Admin URL).
+     *
+     * MỤC ĐÍCH:
+     * - Ngăn chặn tấn công CSWSH (Cross-Site WebSocket Hijacking).
+     * - Đảm bảo chỉ client hợp lệ của hệ thống mới kết nối được.
+     */
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        process.env.FRONTEND_URL,
+        process.env.ADMIN_URL,
+      ].filter(Boolean);
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST'],
   },
   namespace: '/files',
 })
@@ -43,18 +66,42 @@ export class FilesGateway
 
   private readonly logger = new Logger(FilesGateway.name);
   private userSocketMap = new Map<string, Set<string>>();
+  private readonly allowedOrigins: string[];
 
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) {
+    this.allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      this.configService.get<string>('FRONTEND_URL'),
+      this.configService.get<string>('ADMIN_URL'),
+    ].filter((origin): origin is string => Boolean(origin));
+
+    this.logger.log(`Allowed CORS origins: ${this.allowedOrigins.join(', ')}`);
+  }
 
   afterInit(server: Server) {
     this.logger.log('WebSocket Gateway initialized');
   }
 
   async handleConnection(client: AuthenticatedSocket) {
+    // [SECURITY] Kiểm tra Origin lần 2 (Defense in Depth)
+    const origin = client.handshake.headers.origin;
+
+    if (origin && !this.allowedOrigins.includes(origin)) {
+      this.logger.warn(
+        `Rejected connection from unauthorized origin: ${origin}`,
+      );
+      client.disconnect();
+      return;
+    }
+
     try {
+      // [SECURITY] Xác thực Token ngay tại bước Handshake
+      // LOGIC: Lấy token từ Header/Auth Object -> Verify JWT -> Lấy User Info.
+      // MỤC ĐÍCH: Không cho phép kết nối nặc danh (Anonymous). Tiết kiệm tài nguyên server.
       const token = this.extractTokenFromHandshake(client);
 
       if (!token) {
@@ -74,6 +121,9 @@ export class FilesGateway
       client.userId = payload._id;
       client.userEmail = payload.email;
 
+      // [LOGIC] Mapping User <-> Socket ID
+      // Lưu danh sách socket ID vào Map theo User ID để khi Worker báo xong, ta biết gửi cho socket nào.
+      // (Lưu ý: Logic này lưu trên RAM, cần Redis Adapter nếu scale nhiều server)
       if (!this.userSocketMap.has(client.userId)) {
         this.userSocketMap.set(client.userId, new Set());
       }
@@ -168,11 +218,11 @@ export class FilesGateway
       return auth.token;
     }
 
-    const queryToken = client.handshake.query?.token;
-    if (queryToken) {
-      // Đảm bảo chỉ lấy string (nếu là mảng thì lấy phần tử đầu)
-      return Array.isArray(queryToken) ? queryToken[0] : queryToken;
-    }
+    // const queryToken = client.handshake.query?.token;
+    // if (queryToken) {
+    //   // Đảm bảo chỉ lấy string (nếu là mảng thì lấy phần tử đầu)
+    //   return Array.isArray(queryToken) ? queryToken[0] : queryToken;
+    // }
 
     return null;
   }

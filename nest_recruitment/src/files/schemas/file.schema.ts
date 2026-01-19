@@ -50,5 +50,19 @@ export class File extends BaseSchema {
 
 export const FileSchema = SchemaFactory.createForClass(File);
 
+FileSchema.index({ s3Key: 1 }, { unique: true, sparse: true });
+
 FileSchema.index({ status: 1, createdAt: -1 });
-FileSchema.index({ s3Key: 1 }, { unique: true });
+
+FileSchema.index({ 'createdBy._id': 1, status: 1, createdAt: -1 });
+
+FileSchema.index({ 'createdBy._id': 1, createdAt: -1 });
+
+FileSchema.index(
+  { status: 1, createdAt: 1 },
+  {
+    partialFilterExpression: { status: UploadStatus.PENDING },
+  },
+);
+
+FileSchema.index({ uploadedAt: -1 }, { sparse: true });

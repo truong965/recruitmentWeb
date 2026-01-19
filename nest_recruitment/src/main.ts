@@ -11,6 +11,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
+
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    configService.get<string>('FRONTEND_URL'),
+    configService.get<string>('ADMIN_URL'),
+  ].filter(Boolean);
+
   app.useGlobalGuards(new JwtAuthGuard(reflector));
   app.useGlobalInterceptors(new TransformInterceptor(reflector));
   app.useGlobalPipes(
@@ -24,10 +32,16 @@ async function bootstrap() {
   app.use(cookieParser());
   // config CORS
   app.enableCors({
-    origin: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    preflightContinue: false,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'folder_type'],
   });
   //config version
   app.setGlobalPrefix('api');

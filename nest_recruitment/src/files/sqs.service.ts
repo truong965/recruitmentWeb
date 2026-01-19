@@ -5,6 +5,7 @@ import {
   ReceiveMessageCommand,
   DeleteMessageCommand,
   GetQueueAttributesCommand,
+  ChangeMessageVisibilityCommand,
 } from '@aws-sdk/client-sqs';
 
 export interface S3EventRecord {
@@ -28,6 +29,9 @@ export interface SQSMessage {
   ReceiptHandle: string;
   Body: string;
   Records?: S3EventRecord[];
+  Attributes?: {
+    ApproximateReceiveCount?: string;
+  };
 }
 
 interface S3EventNotificationBody {
@@ -38,6 +42,7 @@ export class SQSService {
   private readonly logger = new Logger(SQSService.name);
   private readonly sqsClient: SQSClient;
   private readonly queueUrl: string;
+  private readonly maxReceiveCount: number;
 
   constructor(private configService: ConfigService) {
     const region =
@@ -54,12 +59,15 @@ export class SQSService {
     });
 
     this.queueUrl = this.configService.get<string>('AWS_SQS_QUEUE_URL')!;
+    this.maxReceiveCount =
+      this.configService.get<number>('SQS_MAX_RECEIVE_COUNT') || 3;
 
     if (!this.queueUrl) {
       throw new Error('AWS_SQS_QUEUE_URL is not configured');
     }
 
     this.logger.log(`SQS Service initialized with queue: ${this.queueUrl}`);
+    this.logger.log(`Max receive count: ${this.maxReceiveCount}`);
   }
 
   async receiveMessages(maxMessages: number = 10): Promise<SQSMessage[]> {
@@ -67,13 +75,14 @@ export class SQSService {
       const command = new ReceiveMessageCommand({
         QueueUrl: this.queueUrl,
         MaxNumberOfMessages: maxMessages,
-        WaitTimeSeconds: 20, // Long polling
-        VisibilityTimeout: 30, // Message invisible trong 30s khi đang xử lý
+        WaitTimeSeconds: 20, // [PERFORMANCE] Long Polling: Giữ kết nối 20s nếu chưa có tin nhắn -> Giảm số request rỗng, tiết kiệm chi phí.
+        VisibilityTimeout: 30, // [SAFETY] Trong 30s này, message tàng hình với các worker khác để tránh xử lý trùng lặp (Double Processing).
         AttributeNames: ['All'],
       });
 
       const response = await this.sqsClient.send(command);
-
+      // [DEFENSIVE CODING] Xử lý parse JSON an toàn
+      // Tránh crash worker nếu SQS nhận được tin nhắn rác không đúng định dạng JSON.
       if (!response.Messages || response.Messages.length === 0) {
         return [];
       }
@@ -84,7 +93,7 @@ export class SQSService {
           parsedBody = JSON.parse(msg.Body || '{}') as S3EventNotificationBody;
         } catch (error) {
           this.logger.error(`Failed to parse message body: ${msg.Body}`, error);
-          parsedBody = { Records: [] };
+          parsedBody = { Records: [] }; // Fallback về mảng rỗng để không crash
         }
 
         return {
@@ -92,6 +101,10 @@ export class SQSService {
           ReceiptHandle: msg.ReceiptHandle!,
           Body: msg.Body!,
           Records: parsedBody.Records,
+          Attributes: {
+            ApproximateReceiveCount:
+              msg.Attributes?.ApproximateReceiveCount || '0',
+          },
         };
       });
     } catch (error) {
@@ -115,6 +128,27 @@ export class SQSService {
     }
   }
 
+  async extendVisibilityTimeout(
+    receiptHandle: string,
+    timeoutSeconds: number = 60,
+  ): Promise<void> {
+    try {
+      const command = new ChangeMessageVisibilityCommand({
+        QueueUrl: this.queueUrl,
+        ReceiptHandle: receiptHandle,
+        VisibilityTimeout: timeoutSeconds,
+      });
+
+      await this.sqsClient.send(command);
+      this.logger.debug(
+        `Extended visibility timeout to ${timeoutSeconds}s for message`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to extend visibility timeout', error);
+      throw error;
+    }
+  }
+
   async getQueueAttributes(): Promise<any> {
     try {
       const command = new GetQueueAttributesCommand({
@@ -131,5 +165,13 @@ export class SQSService {
       this.logger.error('Failed to get queue attributes', error);
       throw error;
     }
+  }
+  // [RETRY LOGIC] Kiểm tra số lần đã thử
+  // Dựa vào thuộc tính ApproximateReceiveCount của SQS để biết tin nhắn này đã bị fail bao nhiêu lần.
+  shouldRetry(message: SQSMessage): boolean {
+    const receiveCount = parseInt(
+      message.Attributes?.ApproximateReceiveCount || '0',
+    );
+    return receiveCount < this.maxReceiveCount;
   }
 }
