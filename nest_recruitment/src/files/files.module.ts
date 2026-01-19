@@ -6,6 +6,9 @@ import { memoryStorage } from 'multer';
 import { S3Service } from './s3.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { File, FileSchema } from './schemas/file.schema';
+import { SQSService } from './sqs.service';
+import { S3EventProcessorService } from './s3-event-processor.service';
+import { S3EventWorkerService } from './s3-event-worker.service';
 
 @Module({
   imports: [
@@ -19,7 +22,13 @@ import { File, FileSchema } from './schemas/file.schema';
     }),
   ],
   controllers: [FilesController],
-  providers: [FilesService, S3Service],
+  providers: [
+    FilesService,
+    S3Service,
+    SQSService,
+    S3EventProcessorService,
+    S3EventWorkerService,
+  ],
   exports: [FilesService, S3Service],
 })
 export class FilesModule {}

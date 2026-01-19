@@ -51,63 +51,83 @@ export class S3Service {
       throw new Error('AWS_S3_BUCKET_NAME is not configured');
     }
   }
-
   /**
-   *Upload file lên S3
-   * @param file - File từ multer
-   * @param folder - Thư mục trong bucket (VD: 'resumes', 'avatars', 'companies')
-   * @returns Object chứa file URL và key
+   *  Generate Pre-signed URL for PUT (client upload trực tiếp)
    */
-  async uploadFile(
-    file: Express.Multer.File,
+  async generatePresignedUploadUrl(
+    fileName: string,
+    mimeType: string,
     folder: string = 'uploads',
-  ): Promise<{ url: string; key: string; size: number }> {
+    expiresIn: number = 300, // 5 phút
+  ): Promise<{
+    uploadUrl: string;
+    key: string;
+    fields?: Record<string, string>;
+  }> {
     try {
-      // Validate file
-      this.validateFile(file);
+      // Generate unique key
+      const fileExtension = path.extname(fileName);
+      const uniqueFileName = `${uuidv4()}${fileExtension}`;
+      const key = `${folder}/${uniqueFileName}`;
 
-      // Generate unique file name
-      const fileExtension = path.extname(file.originalname);
-      const fileName = `${uuidv4()}${fileExtension}`;
-      const key = `${folder}/${fileName}`;
-
-      // Upload command
+      // Tạo PUT command
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        // ACL: 'public-read', // Deprecated, dùng Bucket Policy thay thế
+        ContentType: mimeType,
+        // Metadata bổ sung (optional)
+        Metadata: {
+          originalName: fileName,
+          uploadedAt: new Date().toISOString(),
+        },
       });
 
-      // Execute upload
-      await this.s3Client.send(command);
-
-      // Generate public URL
-      const url = `https://s3.${this.region}.amazonaws.com/${this.bucketName}/${key}`;
+      // Generate signed URL
+      const uploadUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn,
+      });
 
       return {
-        url,
+        uploadUrl,
         key,
-        size: file.size,
       };
     } catch (error) {
-      console.error('S3 Upload Error:', error);
+      console.error('Generate Pre-signed URL Error:', error);
       throw new BadRequestException(
-        `Failed to upload file: ${(error as Error).message}`,
+        `Failed to generate upload URL: ${(error as Error).message}`,
       );
     }
   }
 
   /**
-   * Upload multiple files
+   *  Verify file exists trên S3 (sau khi client upload)
    */
-  async uploadFiles(
-    files: Express.Multer.File[],
-    folder: string = 'uploads',
-  ): Promise<Array<{ url: string; key: string; size: number }>> {
-    const uploadPromises = files.map((file) => this.uploadFile(file, folder));
-    return Promise.all(uploadPromises);
+  async verifyFileExists(key: string): Promise<{
+    exists: boolean;
+    size?: number;
+    eTag?: string;
+    versionId?: string;
+  }> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      return {
+        exists: true,
+        size: response.ContentLength,
+        eTag: response.ETag,
+        versionId: response.VersionId,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.name === 'NotFound') {
+        return { exists: false };
+      }
+      throw error;
+    }
   }
 
   /**
@@ -149,8 +169,7 @@ export class S3Service {
         Key: key,
       });
 
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
-      return url;
+      return await getSignedUrl(this.s3Client, command, { expiresIn });
     } catch (error) {
       console.error('S3 Get Signed URL Error:', error);
       throw new BadRequestException(
@@ -160,68 +179,48 @@ export class S3Service {
   }
 
   /**
-   * Check if file exists
+   * Validate file metadata trước khi generate pre-signed URL
    */
-  async fileExists(key: string): Promise<boolean> {
-    try {
-      const command = new HeadObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-
-      await this.s3Client.send(command);
-      return true;
-    } catch (error) {
-      if (error instanceof Error && error.name === 'NotFound') {
-        return false;
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Validate file trước khi upload
-   */
-  private validateFile(file: Express.Multer.File): void {
-    if (!file) {
-      throw new BadRequestException('No file provided');
-    }
-
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
+  validateFileMetadata(
+    fileName: string,
+    fileSize: number,
+    mimeType: string,
+  ): void {
+    // Validate file size (100MB max)
+    const maxSize = 100 * 1024 * 1024;
+    if (fileSize > maxSize) {
       throw new BadRequestException(
         `File size exceeds maximum limit of ${maxSize / 1024 / 1024}MB`,
       );
     }
 
+    if (fileSize <= 0) {
+      throw new BadRequestException('File size must be greater than 0');
+    }
+
     // Validate file type
     const allowedMimeTypes = [
-      // Images
       'image/jpeg',
       'image/jpg',
       'image/png',
       'image/gif',
       'image/webp',
-      // Documents
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
+      'video/mp4',
+      'video/mpeg',
     ];
 
-    if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        `File type ${file.mimetype} is not allowed`,
-      );
+    if (!allowedMimeTypes.includes(mimeType)) {
+      throw new BadRequestException(`File type ${mimeType} is not allowed`);
     }
-  }
 
-  /**
-   * Get public URL từ key (path-style)
-   */
-  getPublicUrl(key: string): string {
-    return `https://s3.${this.region}.amazonaws.com/${this.bucketName}/${key}`;
+    // Validate filename
+    if (!fileName || fileName.trim() === '') {
+      throw new BadRequestException('File name is required');
+    }
   }
 
   /**

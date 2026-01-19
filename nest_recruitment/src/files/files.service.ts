@@ -1,10 +1,14 @@
-// src/files/files.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { S3Service } from './s3.service';
 import type { IUser } from 'src/users/users.interface';
-import { FileDocument } from './schemas/file.schema';
+import { FileDocument, UploadStatus } from './schemas/file.schema';
+import { RequestUploadDto } from './dto/request-upload.dto';
 
 @Injectable()
 export class FilesService {
@@ -14,46 +18,97 @@ export class FilesService {
   ) {}
 
   /**
-   * Upload file lên S3 và lưu metadata vào DB
+   * 🆕 PHASE 1: Request upload - Generate pre-signed URL
    */
-  async uploadFile(
-    file: Express.Multer.File,
+  async requestUpload(
+    dto: RequestUploadDto,
     user: IUser,
-    folder?: string,
-  ): Promise<FileDocument> {
-    // 1. Upload lên S3
-    const s3Result = await this.s3Service.uploadFile(file, folder);
+  ): Promise<{
+    uploadUrl: string;
+    fileId: string;
+    fileKey: string;
+    expiresIn: number;
+  }> {
+    // 1. Validate file metadata
+    this.s3Service.validateFileMetadata(
+      dto.fileName,
+      dto.fileSize,
+      dto.mimeType,
+    );
 
-    // 2. Lưu metadata vào DB
+    // 2. Generate pre-signed URL
+    const folder = dto.folder || 'uploads';
+    const { uploadUrl, key } = await this.s3Service.generatePresignedUploadUrl(
+      dto.fileName,
+      dto.mimeType,
+      folder,
+      300, // 5 phút
+    );
+
+    // 3. Tạo bản ghi PENDING trong DB
     const fileDoc = await this.fileModel.create({
-      originalName: file.originalname,
-      fileName: s3Result.key.split('/').pop(), // Lấy tên file từ key
-      mimeType: file.mimetype,
-      size: file.size,
-      s3Key: s3Result.key,
-      s3Url: s3Result.url,
-      folder: folder || 'uploads',
+      originalName: dto.fileName,
+      fileName: key.split('/').pop(),
+      mimeType: dto.mimeType,
+      size: dto.fileSize,
+      s3Key: key,
+      folder,
+      status: UploadStatus.PENDING,
       createdBy: {
         _id: user._id,
         email: user.email,
       },
     });
 
-    return fileDoc;
+    return {
+      uploadUrl,
+      fileId: fileDoc._id.toString(),
+      fileKey: key,
+      expiresIn: 300,
+    };
   }
 
   /**
-   * Upload multiple files
+   * 🆕 PHASE 1: Confirm upload - Client báo upload xong (tạm thời)
+   * (Phase 3 sẽ thay bằng S3 Event)
    */
-  async uploadFiles(
-    files: Express.Multer.File[],
-    user: IUser,
-    folder?: string,
-  ): Promise<FileDocument[]> {
-    const uploadPromises = files.map((file) =>
-      this.uploadFile(file, user, folder),
-    );
-    return Promise.all(uploadPromises);
+  async confirmUpload(fileId: string, user: IUser): Promise<FileDocument> {
+    // 1. Tìm file trong DB
+    const file = await this.fileModel.findById(fileId);
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    // 2. Check ownership
+    if (
+      !file.createdBy ||
+      file.createdBy._id.toString() !== user._id.toString()
+    ) {
+      throw new BadRequestException('You can only confirm your own uploads');
+    }
+
+    // 3. Verify file exists trên S3
+    const verification = await this.s3Service.verifyFileExists(file.s3Key);
+
+    if (!verification.exists) {
+      // File không tồn tại trên S3
+      file.status = UploadStatus.FAILED;
+      await file.save();
+      throw new BadRequestException(
+        'File not found on S3. Upload may have failed.',
+      );
+    }
+
+    // 4. Update status → COMPLETED
+    file.status = UploadStatus.COMPLETED;
+    file.uploadedAt = new Date();
+    file.eTag = verification.eTag;
+    file.versionId = verification.versionId;
+    file.size = verification.size || file.size; // Update actual size
+
+    await file.save();
+
+    return file;
   }
 
   /**
@@ -100,31 +155,48 @@ export class FilesService {
   async remove(id: string): Promise<void> {
     const file = await this.findOne(id);
 
-    // Check ownership (đã check ở controller)
-
-    // 1. Xóa trên S3
-    await this.s3Service.deleteFile(file.s3Key);
+    // 1. Xóa trên S3 (chỉ xóa nếu status = COMPLETED)
+    if (file.status === UploadStatus.COMPLETED) {
+      await this.s3Service.deleteFile(file.s3Key);
+    }
 
     // 2. Xóa trong DB
     await this.fileModel.deleteOne({ _id: id });
   }
 
   /**
-   * Get signed URL cho private file
+   * Get signed URL cho private file (download)
    */
   async getSignedUrl(id: string, expiresIn: number = 3600): Promise<string> {
     const file = await this.findOne(id);
+
+    if (file.status !== UploadStatus.COMPLETED) {
+      throw new BadRequestException('File upload is not completed yet');
+    }
+
     return this.s3Service.getSignedUrl(file.s3Key, expiresIn);
   }
 
   /**
-   * Delete files by keys (cleanup orphaned files)
+   * 🆕 Cleanup expired PENDING uploads (Background job)
    */
-  async deleteByKeys(keys: string[]): Promise<void> {
-    // 1. Xóa trên S3
-    await this.s3Service.deleteFiles(keys);
+  async cleanupExpiredPending(): Promise<number> {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-    // 2. Xóa trong DB
-    await this.fileModel.deleteMany({ s3Key: { $in: keys } });
+    const expiredFiles = await this.fileModel.find({
+      status: UploadStatus.PENDING,
+      createdAt: { $lt: oneHourAgo },
+    });
+
+    if (expiredFiles.length === 0) {
+      return 0;
+    }
+
+    // Xóa trong DB (không cần xóa S3 vì có thể chưa upload)
+    await this.fileModel.deleteMany({
+      _id: { $in: expiredFiles.map((f) => f._id) },
+    });
+
+    return expiredFiles.length;
   }
 }
